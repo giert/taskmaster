@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package taskmaster
@@ -5,6 +6,7 @@ package taskmaster
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/user"
 	"strings"
@@ -19,6 +21,12 @@ import (
 const S_FALSE = 0x00000001
 
 func (t *TaskService) initialize() error {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println("panic occurred:", err)
+		}
+	}()
+
 	var err error
 
 	err = ole.CoInitialize(0)
@@ -41,7 +49,7 @@ func (t *TaskService) initialize() error {
 	}
 	if taskSchedulerObj == nil {
 		ole.CoUninitialize()
-		return errors.New("Could not create ITaskService object")
+		return errors.New("could not create ITaskService object")
 	}
 	defer taskSchedulerObj.Release()
 

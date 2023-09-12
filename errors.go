@@ -20,10 +20,7 @@ var (
 )
 
 func getTaskSchedulerError(err error) error {
-	errCode, ok := getOLEErrorCode(err)
-	if !ok {
-		return err
-	}
+	errCode := getOLEErrorCode(err)
 	switch errCode {
 	case 50:
 		return ErrTargetUnsupported
@@ -35,10 +32,7 @@ func getTaskSchedulerError(err error) error {
 }
 
 func getRunningTaskError(err error) error {
-	errCode, ok := getOLEErrorCode(err)
-	if !ok {
-		return err
-	}
+	errCode := getOLEErrorCode(err)
 	if errCode == 0x8004130B {
 		return ErrRunningTaskCompleted
 	}
@@ -46,12 +40,6 @@ func getRunningTaskError(err error) error {
 	return syscall.Errno(errCode)
 }
 
-func getOLEErrorCode(err error) (uint32, bool) {
-	oleErr, ok := err.(*ole.OleError)
-	if !ok {
-		return 0, false
-	} else if oleErr.SubError() == nil {
-		return uint32(oleErr.Code()), true
-	}
-	return oleErr.SubError().(ole.EXCEPINFO).SCODE(), true
+func getOLEErrorCode(err error) uint32 {
+	return err.(*ole.OleError).SubError().(ole.EXCEPINFO).SCODE()
 }
