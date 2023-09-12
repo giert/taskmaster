@@ -6,7 +6,6 @@ package taskmaster
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/user"
 	"strings"
@@ -20,14 +19,12 @@ import (
 // S_FALSE is returned by CoInitialize if it was already called on this thread.
 const S_FALSE = 0x00000001
 
-func (t *TaskService) initialize() error {
+func (t *TaskService) initialize() (err error) {
 	defer func() {
-		if err := recover(); err != nil {
-			log.Println("panic occurred:", err)
+		if p := recover(); p != nil {
+			err = errors.New("panic occurred: " + fmt.Sprint(p))
 		}
 	}()
-
-	var err error
 
 	err = ole.CoInitialize(0)
 	if err != nil {
