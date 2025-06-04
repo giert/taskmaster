@@ -22,7 +22,7 @@ const S_FALSE = 0x00000001
 func (t *TaskService) initialize() error {
 	var err error
 
-	err = ole.CoInitialize(0)
+	err = ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
 	if err != nil {
 		code := err.(*ole.OleError).Code()
 		if code != ole.S_OK && code != S_FALSE {
