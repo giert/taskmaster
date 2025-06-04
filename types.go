@@ -838,10 +838,10 @@ type MonthlyDOWTrigger struct {
 // https://docs.microsoft.com/en-us/windows/desktop/api/taskschd/nn-taskschd-imonthlytrigger
 type MonthlyTrigger struct {
 	TaskTrigger
-	DaysOfMonth          DayOfMonth    // the days of the month during which the task runs
-	MonthsOfYear         Month         // the months of the year during which the task runs
-	RandomDelay          period.Period // a delay time that is randomly added to the start time of the trigger
-	RunOnLastWeekOfMonth bool          // indicates that the task runs on the last week of the month
+	DaysOfMonth         DayOfMonth    // the days of the month during which the task runs
+	MonthsOfYear        Month         // the months of the year during which the task runs
+	RandomDelay         period.Period // a delay time that is randomly added to the start time of the trigger
+	RunOnLastDayOfMonth bool          // indicates that the task runs on the last day of the month
 }
 
 // RegistrationTrigger triggers the task when the task is registered.

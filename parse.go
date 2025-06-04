@@ -538,14 +538,14 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error parsing IMonthlyTrigger object: error parsing RandomDelay field: %v", err)
 		}
-		runOnLastWeekOfMonth := oleutil.MustGetProperty(trigger, "RunOnLastDayOfMonth").Value().(bool)
+		runOnLastDayOfMonth := oleutil.MustGetProperty(trigger, "RunOnLastDayOfMonth").Value().(bool)
 
 		monthlyTrigger := MonthlyTrigger{
-			TaskTrigger:          taskTriggerObj,
-			DaysOfMonth:          daysOfMonth,
-			MonthsOfYear:         monthsOfYear,
-			RandomDelay:          randomDelay,
-			RunOnLastWeekOfMonth: runOnLastWeekOfMonth,
+			TaskTrigger:         taskTriggerObj,
+			DaysOfMonth:         daysOfMonth,
+			MonthsOfYear:        monthsOfYear,
+			RandomDelay:         randomDelay,
+			RunOnLastDayOfMonth: runOnLastDayOfMonth,
 		}
 
 		return monthlyTrigger, nil
