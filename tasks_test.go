@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package taskmaster
@@ -13,12 +14,8 @@ func TestRelease(t *testing.T) {
 }
 
 func TestRunRegisteredTask(t *testing.T) {
-	taskService, err := Connect()
-	if err != nil {
-		t.Fatal(err)
-	}
+	taskService := setupTaskService(t)
 	testTask := createTestTask(taskService)
-	defer taskService.Disconnect()
 
 	runningTask, err := testTask.Run("3")
 	if err != nil {
@@ -28,12 +25,8 @@ func TestRunRegisteredTask(t *testing.T) {
 }
 
 func TestRefreshRunningTask(t *testing.T) {
-	taskService, err := Connect()
-	if err != nil {
-		t.Fatal(err)
-	}
+	taskService := setupTaskService(t)
 	testTask := createTestTask(taskService)
-	defer taskService.Disconnect()
 
 	runningTask, err := testTask.Run("3")
 	if err != nil {
@@ -48,12 +41,8 @@ func TestRefreshRunningTask(t *testing.T) {
 }
 
 func TestStopRunningTask(t *testing.T) {
-	taskService, err := Connect()
-	if err != nil {
-		t.Fatal(err)
-	}
+	taskService := setupTaskService(t)
 	testTask := createTestTask(taskService)
-	defer taskService.Disconnect()
 
 	runningTask, err := testTask.Run("9001")
 	if err != nil {
@@ -67,14 +56,11 @@ func TestStopRunningTask(t *testing.T) {
 }
 
 func TestGetInstancesRegisteredTask(t *testing.T) {
-	taskService, err := Connect()
-	if err != nil {
-		t.Fatal(err)
-	}
+	taskService := setupTaskService(t)
 	testTask := createTestTask(taskService)
-	defer taskService.Disconnect()
 
 	runningTasks := make(RunningTaskCollection, 5, 5)
+	var err error
 
 	// create a few running tasks so that there will be multiple instances
 	// of the registered task running
@@ -100,15 +86,12 @@ func TestGetInstancesRegisteredTask(t *testing.T) {
 }
 
 func TestStopRegisteredTask(t *testing.T) {
-	taskService, err := Connect()
-	if err != nil {
-		t.Fatal(err)
-	}
+	taskService := setupTaskService(t)
 	testTask := createTestTask(taskService)
-	defer taskService.Disconnect()
 
+	var err error
 	for i := 0; i < 5; i++ {
-		_, err := testTask.Run("3")
+		_, err = testTask.Run("3")
 		if err != nil {
 			t.Fatal(err)
 		}
