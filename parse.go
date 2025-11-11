@@ -6,6 +6,7 @@ package taskmaster
 import (
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	ole "github.com/go-ole/go-ole"
@@ -90,13 +91,13 @@ func parseRegisteredTask(task *ole.IDispatch) (RegisteredTask, string, error) {
 	if err != nil {
 		return RegisteredTask{}, "", err
 	}
-	nextRunTime := nextRunTimeVar.Value().(time.Time)
+	nextRunTime := variantTimeOrZero(nextRunTimeVar)
 
 	lastRunTimeVar, err := oleutil.GetProperty(task, "LastRunTime")
 	if err != nil {
 		return RegisteredTask{}, "", err
 	}
-	lastRunTime := lastRunTimeVar.Value().(time.Time)
+	lastRunTime := variantTimeOrZero(lastRunTimeVar)
 
 	lastTaskResultVar, err := oleutil.GetProperty(task, "LastTaskResult")
 	if err != nil {
@@ -613,4 +614,27 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 	default:
 		return nil, errors.New("unsupported ITrigger type")
 	}
+}
+
+var oleAutomationEpoch = time.Date(1899, time.December, 30, 0, 0, 0, 0, time.UTC)
+
+func variantTimeOrZero(v *ole.VARIANT) time.Time {
+	if v == nil || v.VT != ole.VT_DATE {
+		return time.Time{}
+	}
+
+	return oleDateToTime(math.Float64frombits(uint64(v.Val)))
+}
+
+func oleDateToTime(value float64) time.Time {
+	if value == 0 || math.IsNaN(value) || math.IsInf(value, 0) {
+		return time.Time{}
+	}
+
+	const day = 24 * time.Hour
+	days, frac := math.Modf(value)
+	dayDuration := time.Duration(int64(days)) * day
+	fracDuration := time.Duration(frac * float64(day))
+
+	return oleAutomationEpoch.Add(dayDuration + fracDuration)
 }
