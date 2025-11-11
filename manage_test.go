@@ -465,3 +465,71 @@ func TestConnectWithOptionsInvalidTarget(t *testing.T) {
 		t.Fatalf("expected ErrConnectionFailure, got %v", err)
 	}
 }
+
+func TestPrincipalSettingsRoundTrip(t *testing.T) {
+	taskService := setupTaskService(t)
+
+	interactiveUser := taskService.GetConnectedDomain() + `\` + taskService.GetConnectedUser()
+
+	testPrincipals := []struct {
+		name      string
+		principal Principal
+	}{
+		{
+			name: "Interactive",
+			principal: Principal{
+				UserID:    interactiveUser,
+				LogonType: TASK_LOGON_INTERACTIVE_TOKEN,
+				RunLevel:  TASK_RUNLEVEL_HIGHEST,
+			},
+		},
+		{
+			name: "System",
+			principal: Principal{
+				UserID:    "SYSTEM",
+				LogonType: TASK_LOGON_SERVICE_ACCOUNT,
+				RunLevel:  TASK_RUNLEVEL_HIGHEST,
+			},
+		},
+	}
+
+	for _, tt := range testPrincipals {
+		def := taskService.NewTaskDefinition()
+		def.Actions = nil
+		def.AddAction(ExecAction{Path: "calc.exe"})
+		def.Principal = tt.principal
+		def.Settings.MultipleInstances = TASK_INSTANCES_QUEUE
+		def.Settings.StopIfGoingOnBatteries = false
+
+		path := testTaskPath("Principal", tt.name)
+		if _, _, err := taskService.CreateTask(path, def, true); err != nil {
+			if strings.Contains(err.Error(), "Access is denied") {
+				if tt.name == "System" {
+					t.Logf("skipping system principal test due to insufficient privileges: %v", err)
+					continue
+				}
+				t.Skipf("skipping principal test for %s: %v", tt.name, err)
+			}
+			t.Fatalf("failed to create task for %s: %v", tt.name, err)
+		}
+
+		withRegisteredTask(t, taskService, path, func(task RegisteredTask) {
+			got := task.Definition.Principal
+			if got.UserID != tt.principal.UserID {
+				t.Fatalf("principal %s: expected UserID %s, got %s", tt.name, tt.principal.UserID, got.UserID)
+			}
+			if got.LogonType != tt.principal.LogonType {
+				t.Fatalf("principal %s: expected LogonType %d, got %d", tt.name, tt.principal.LogonType, got.LogonType)
+			}
+			if got.RunLevel != tt.principal.RunLevel {
+				t.Fatalf("principal %s: expected RunLevel %d, got %d", tt.name, tt.principal.RunLevel, got.RunLevel)
+			}
+			if task.Definition.Settings.MultipleInstances != TASK_INSTANCES_QUEUE {
+				t.Fatalf("principal %s: expected MultipleInstances %d, got %d", tt.name, TASK_INSTANCES_QUEUE, task.Definition.Settings.MultipleInstances)
+			}
+			if task.Definition.Settings.StopIfGoingOnBatteries {
+				t.Fatalf("principal %s: expected StopIfGoingOnBatteries false", tt.name)
+			}
+		})
+	}
+}
