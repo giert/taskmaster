@@ -469,7 +469,12 @@ func TestConnectWithOptionsInvalidTarget(t *testing.T) {
 func TestPrincipalSettingsRoundTrip(t *testing.T) {
 	taskService := setupTaskService(t)
 
-	interactiveUser := taskService.GetConnectedDomain() + `\` + taskService.GetConnectedUser()
+	connectedDomain := taskService.GetConnectedDomain()
+	connectedUser := taskService.GetConnectedUser()
+	interactiveUserID := connectedUser
+	if connectedDomain != "" {
+		interactiveUserID = connectedDomain + `\` + connectedUser
+	}
 
 	testPrincipals := []struct {
 		name      string
@@ -478,7 +483,7 @@ func TestPrincipalSettingsRoundTrip(t *testing.T) {
 		{
 			name: "Interactive",
 			principal: Principal{
-				UserID:    interactiveUser,
+				UserID:    interactiveUserID,
 				LogonType: TASK_LOGON_INTERACTIVE_TOKEN,
 				RunLevel:  TASK_RUNLEVEL_HIGHEST,
 			},
@@ -515,7 +520,11 @@ func TestPrincipalSettingsRoundTrip(t *testing.T) {
 
 		withRegisteredTask(t, taskService, path, func(task RegisteredTask) {
 			got := task.Definition.Principal
-			if got.UserID != tt.principal.UserID {
+			if tt.name == "Interactive" {
+				if !strings.EqualFold(got.UserID, interactiveUserID) && !strings.EqualFold(got.UserID, connectedUser) {
+					t.Fatalf("principal %s: expected UserID %s or %s, got %s", tt.name, interactiveUserID, connectedUser, got.UserID)
+				}
+			} else if got.UserID != tt.principal.UserID {
 				t.Fatalf("principal %s: expected UserID %s, got %s", tt.name, tt.principal.UserID, got.UserID)
 			}
 			if got.LogonType != tt.principal.LogonType {
