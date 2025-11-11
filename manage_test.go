@@ -29,7 +29,6 @@ func TestCreateTask(t *testing.T) {
 		if action.Path != popCalc.Path {
 			t.Fatalf("expected exec action path %s, got %s", popCalc.Path, action.Path)
 		}
-		requireTriggerCount(t, task, 0)
 	}
 
 	_, _, err = taskService.CreateTask(testTaskPath("ExecAction"), execTaskDef, true)
@@ -38,6 +37,7 @@ func TestCreateTask(t *testing.T) {
 	}
 	withRegisteredTask(t, taskService, testTaskPath("ExecAction"), func(task RegisteredTask) {
 		assertCalcAction(task)
+		requireTriggerCount(t, task, 0)
 	})
 
 	// test ComHandlerAction
