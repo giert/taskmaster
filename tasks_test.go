@@ -102,3 +102,40 @@ func TestStopRegisteredTask(t *testing.T) {
 		t.Fatalf("error stopping tasks: %v", err)
 	}
 }
+
+func TestGetRunningTasksServiceWide(t *testing.T) {
+	taskService := setupTaskService(t)
+	testTask := createTestTask(taskService)
+
+	runningInstances := make([]RunningTask, 0, 3)
+	for i := 0; i < 3; i++ {
+		instance, err := testTask.Run("5")
+		if err != nil {
+			t.Fatalf("failed to run task instance %d: %v", i, err)
+		}
+		runningInstances = append(runningInstances, instance)
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	serviceRunningTasks, err := taskService.GetRunningTasks()
+	if err != nil {
+		t.Fatalf("failed to get running tasks: %v", err)
+	}
+	defer serviceRunningTasks.Release()
+
+	var seen int
+	for _, runningTask := range serviceRunningTasks {
+		if runningTask.Path == testTask.Path {
+			seen++
+		}
+	}
+
+	if seen != len(runningInstances) {
+		t.Fatalf("expected %d running entries for %s, got %d", len(runningInstances), testTask.Path, seen)
+	}
+
+	for _, runningTask := range runningInstances {
+		runningTask.Release()
+	}
+	_ = testTask.Stop()
+}

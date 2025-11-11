@@ -135,7 +135,6 @@ func (t *TaskService) GetRunningTasks() (RunningTaskCollection, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting running tasks: %v", getTaskSchedulerError(err))
 	}
-	defer res.Clear()
 
 	runningTasksObj := res.ToIDispatch()
 	defer runningTasksObj.Release()
