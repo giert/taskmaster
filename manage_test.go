@@ -4,6 +4,7 @@
 package taskmaster
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -429,5 +430,15 @@ func TestDeleteFolder(t *testing.T) {
 		if strings.Split(task.Path, "\\")[1] == testTaskFolderName {
 			t.Error("task should've been deleted")
 		}
+	}
+}
+
+func TestConnectWithOptionsInvalidTarget(t *testing.T) {
+	_, err := ConnectWithOptions("invalid-taskmaster-host", "", "", "")
+	if err == nil {
+		t.Fatal("expected connection failure")
+	}
+	if !errors.Is(err, ErrConnectionFailure) {
+		t.Fatalf("expected ErrConnectionFailure, got %v", err)
 	}
 }
