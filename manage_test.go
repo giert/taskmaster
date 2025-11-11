@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rickb777/date/period"
 )
 
 func TestLocalConnect(t *testing.T) {
@@ -77,8 +79,10 @@ func TestCreateTask(t *testing.T) {
 	// test DailyTrigger
 	dailyTriggerDef := taskService.NewTaskDefinition()
 	dailyTriggerDef.AddAction(popCalc)
+	dailyRandomDelay := period.NewHMS(0, 15, 0)
 	dailyTriggerDef.AddTrigger(DailyTrigger{
 		DayInterval: EveryDay,
+		RandomDelay: dailyRandomDelay,
 		TaskTrigger: TaskTrigger{
 			StartBoundary: time.Now(),
 		},
@@ -93,6 +97,9 @@ func TestCreateTask(t *testing.T) {
 		trigger := requireTriggerAt[DailyTrigger](t, task, 0)
 		if trigger.DayInterval != EveryDay {
 			t.Fatalf("expected DayInterval %v, got %v", EveryDay, trigger.DayInterval)
+		}
+		if trigger.RandomDelay.String() != dailyRandomDelay.String() {
+			t.Fatalf("expected random delay %s, got %s", dailyRandomDelay, trigger.RandomDelay)
 		}
 	})
 
@@ -227,9 +234,16 @@ func TestCreateTask(t *testing.T) {
 	// test TimeTrigger
 	timeTriggerDef := taskService.NewTaskDefinition()
 	timeTriggerDef.AddAction(popCalc)
+	repetitionInterval := period.NewHMS(0, 30, 0)
+	repetitionDuration := period.NewHMS(2, 0, 0)
 	timeTriggerDef.AddTrigger(TimeTrigger{
 		TaskTrigger: TaskTrigger{
 			StartBoundary: time.Now(),
+			RepetitionPattern: RepetitionPattern{
+				RepetitionInterval: repetitionInterval,
+				RepetitionDuration: repetitionDuration,
+				StopAtDurationEnd:  true,
+			},
 		},
 	})
 	_, _, err = taskService.CreateTask(testTaskPath("TimeTrigger"), timeTriggerDef, true)
@@ -242,6 +256,15 @@ func TestCreateTask(t *testing.T) {
 		trigger := requireTriggerAt[TimeTrigger](t, task, 0)
 		if trigger.TaskTrigger.StartBoundary.IsZero() {
 			t.Fatal("expected time trigger to have a start boundary")
+		}
+		if trigger.TaskTrigger.RepetitionInterval.String() != repetitionInterval.String() {
+			t.Fatalf("expected repetition interval %s, got %s", repetitionInterval, trigger.TaskTrigger.RepetitionInterval)
+		}
+		if trigger.TaskTrigger.RepetitionDuration.String() != repetitionDuration.String() {
+			t.Fatalf("expected repetition duration %s, got %s", repetitionDuration, trigger.TaskTrigger.RepetitionDuration)
+		}
+		if !trigger.TaskTrigger.StopAtDurationEnd {
+			t.Fatal("expected StopAtDurationEnd to be true")
 		}
 	})
 
