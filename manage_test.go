@@ -23,11 +23,22 @@ func TestCreateTask(t *testing.T) {
 		Path: "calc.exe",
 	}
 	execTaskDef.AddAction(popCalc)
+	assertCalcAction := func(task RegisteredTask) {
+		requireActionCount(t, task, 1)
+		action := requireActionAt[ExecAction](t, task, 0)
+		if action.Path != popCalc.Path {
+			t.Fatalf("expected exec action path %s, got %s", popCalc.Path, action.Path)
+		}
+		requireTriggerCount(t, task, 0)
+	}
 
 	_, _, err = taskService.CreateTask(testTaskPath("ExecAction"), execTaskDef, true)
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("ExecAction"), func(task RegisteredTask) {
+		assertCalcAction(task)
+	})
 
 	// test ComHandlerAction
 	comHandlerDef := taskService.NewTaskDefinition()
@@ -39,6 +50,14 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("ComHandlerAction"), func(task RegisteredTask) {
+		requireActionCount(t, task, 1)
+		action := requireActionAt[ComHandlerAction](t, task, 0)
+		if action.ClassID != "{F0001111-0000-0000-0000-0000FEEDACDC}" {
+			t.Fatalf("unexpected class ID %s", action.ClassID)
+		}
+		requireTriggerCount(t, task, 0)
+	})
 
 	// test BootTrigger
 	bootTriggerDef := taskService.NewTaskDefinition()
@@ -48,6 +67,11 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("BootTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		requireTriggerAt[BootTrigger](t, task, 0)
+	})
 
 	// test DailyTrigger
 	dailyTriggerDef := taskService.NewTaskDefinition()
@@ -62,6 +86,14 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("DailyTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		trigger := requireTriggerAt[DailyTrigger](t, task, 0)
+		if trigger.DayInterval != EveryDay {
+			t.Fatalf("expected DayInterval %v, got %v", EveryDay, trigger.DayInterval)
+		}
+	})
 
 	// test EventTrigger
 	eventTriggerDef := taskService.NewTaskDefinition()
@@ -74,6 +106,14 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("EventTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		trigger := requireTriggerAt[EventTrigger](t, task, 0)
+		if trigger.Subscription != subscription {
+			t.Fatalf("expected subscription %s, got %s", subscription, trigger.Subscription)
+		}
+	})
 
 	// test IdleTrigger
 	idleTriggerDef := taskService.NewTaskDefinition()
@@ -83,6 +123,11 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("IdleTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		requireTriggerAt[IdleTrigger](t, task, 0)
+	})
 
 	// test LogonTrigger
 	logonTriggerDef := taskService.NewTaskDefinition()
@@ -92,6 +137,11 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("LogonTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		requireTriggerAt[LogonTrigger](t, task, 0)
+	})
 
 	// test MonthlyDOWTrigger
 	monthlyDOWTriggerDef := taskService.NewTaskDefinition()
@@ -108,6 +158,14 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("MonthlyDOWTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		trigger := requireTriggerAt[MonthlyDOWTrigger](t, task, 0)
+		if trigger.DaysOfWeek != Monday|Friday || trigger.MonthsOfYear != January|February || trigger.WeeksOfMonth != First {
+			t.Fatal("monthly DOW trigger values did not round-trip")
+		}
+	})
 
 	// test MonthlyTrigger
 	monthlyTriggerDef := taskService.NewTaskDefinition()
@@ -123,6 +181,14 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("MonthlyTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		trigger := requireTriggerAt[MonthlyTrigger](t, task, 0)
+		if trigger.DaysOfMonth != 3 || trigger.MonthsOfYear != February|March {
+			t.Fatal("monthly trigger values did not round-trip")
+		}
+	})
 
 	// test RegistrationTrigger
 	registrationTriggerDef := taskService.NewTaskDefinition()
@@ -132,6 +198,11 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("RegistrationTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		requireTriggerAt[RegistrationTrigger](t, task, 0)
+	})
 
 	// test SessionStateChangeTrigger
 	sessionStateChangeTriggerDef := taskService.NewTaskDefinition()
@@ -143,6 +214,14 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("SessionStateChangeTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		trigger := requireTriggerAt[SessionStateChangeTrigger](t, task, 0)
+		if trigger.StateChange != TASK_SESSION_LOCK {
+			t.Fatalf("expected session state change %d, got %d", TASK_SESSION_LOCK, trigger.StateChange)
+		}
+	})
 
 	// test TimeTrigger
 	timeTriggerDef := taskService.NewTaskDefinition()
@@ -156,6 +235,14 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("TimeTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		trigger := requireTriggerAt[TimeTrigger](t, task, 0)
+		if trigger.TaskTrigger.StartBoundary.IsZero() {
+			t.Fatal("expected time trigger to have a start boundary")
+		}
+	})
 
 	// test WeeklyTrigger
 	weeklyTriggerDef := taskService.NewTaskDefinition()
@@ -171,6 +258,14 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	withRegisteredTask(t, taskService, testTaskPath("WeeklyTrigger"), func(task RegisteredTask) {
+		assertCalcAction(task)
+		requireTriggerCount(t, task, 1)
+		trigger := requireTriggerAt[WeeklyTrigger](t, task, 0)
+		if trigger.DaysOfWeek != Tuesday|Thursday || trigger.WeekInterval != EveryOtherWeek {
+			t.Fatal("weekly trigger values did not round-trip")
+		}
+	})
 
 	// test trying to create task where a task at the same path already exists and the 'overwrite' is set to false
 	_, taskCreated, err := taskService.CreateTask(testTaskPath("TimeTrigger"), timeTriggerDef, false)
