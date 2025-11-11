@@ -320,11 +320,61 @@ func TestGetRegisteredTasks(t *testing.T) {
 func TestGetTaskFolders(t *testing.T) {
 	taskService := setupTaskService(t)
 
+	for _, leaf := range []struct {
+		folder []string
+		task   string
+	}{
+		{folder: []string{"Folders", "Alpha"}, task: "TaskOne"},
+		{folder: []string{"Folders", "Beta"}, task: "TaskOne"},
+	} {
+		def := taskService.NewTaskDefinition()
+		def.AddAction(ExecAction{Path: "calc.exe"})
+
+		pathParts := append([]string{}, leaf.folder...)
+		pathParts = append(pathParts, leaf.task)
+
+		if _, _, err := taskService.CreateTask(testTaskPath(pathParts...), def, true); err != nil {
+			t.Fatalf("failed to seed task %v: %v", pathParts, err)
+		}
+	}
+
 	tf, err := taskService.GetTaskFolders()
 	if err != nil {
 		t.Fatal(err)
 	}
-	tf.Release()
+	defer tf.Release()
+
+	var foundTestRoot bool
+	for _, folder := range tf.SubFolders {
+		if folder.Path != testTaskRoot {
+			continue
+		}
+
+		foundTestRoot = true
+		queue := append([]*TaskFolder{}, folder.SubFolders...)
+		leafTasks := map[string]int{}
+		for len(queue) > 0 {
+			current := queue[0]
+			queue = queue[1:]
+
+			if len(current.SubFolders) == 0 {
+				leafTasks[current.Path] = len(current.RegisteredTasks)
+				continue
+			}
+
+			queue = append(queue, current.SubFolders...)
+		}
+
+		if leafTasks[testTaskPath("Folders", "Alpha")] != 1 || leafTasks[testTaskPath("Folders", "Beta")] != 1 {
+			t.Fatalf("missing expected leaves or wrong task counts: %v", leafTasks)
+		}
+
+		break
+	}
+
+	if !foundTestRoot {
+		t.Fatalf("did not find %s in folder tree", testTaskRoot)
+	}
 }
 
 func TestDeleteTask(t *testing.T) {
