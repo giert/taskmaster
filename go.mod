@@ -1,6 +1,6 @@
 module github.com/giert/taskmaster
 
-go 1.22.11
+go 1.22.12
 
 require (
 	github.com/go-ole/go-ole v1.3.0
