@@ -50,7 +50,11 @@ func (t *TaskService) initialize() error {
 	}
 	defer taskSchedulerObj.Release()
 
-	tskSchdlr := taskSchedulerObj.MustQueryInterface(ole.IID_IDispatch)
+	tskSchdlr, err := taskSchedulerObj.QueryInterface(ole.IID_IDispatch)
+	if err != nil {
+		ole.CoUninitialize()
+		return getTaskSchedulerError(err)
+	}
 	t.taskServiceObj = tskSchdlr
 	t.isInitialized = true
 
@@ -337,8 +341,12 @@ func (t TaskService) GetTaskFolder(path string) (TaskFolder, error) {
 			taskFolder := v.ToIDispatch()
 			defer taskFolder.Release()
 
-			name := oleutil.MustGetProperty(taskFolder, "Name").ToString()
-			path := oleutil.MustGetProperty(taskFolder, "Path").ToString()
+			h := &oleHelper{}
+			name := h.getString(taskFolder, "Name")
+			path := h.getString(taskFolder, "Path")
+			if h.err != nil {
+				return h.err
+			}
 			res, err := oleutil.CallMethod(taskFolder, "GetTasks", int(TASK_ENUM_HIDDEN))
 			if err != nil {
 				return fmt.Errorf("error getting tasks of folder %s: %w", path, getTaskSchedulerError(err))
@@ -563,7 +571,12 @@ func (t *TaskService) DeleteFolder(path string, deleteRecursively bool) (bool, e
 	}
 	taskCollection := res.ToIDispatch()
 	defer taskCollection.Release()
-	if !deleteRecursively && oleutil.MustGetProperty(taskCollection, "Count").Val > 0 {
+	h := &oleHelper{}
+	taskCount := h.getInt(taskCollection, "Count")
+	if h.err != nil {
+		return false, fmt.Errorf("error getting task count of folder %s: %w", path, h.err)
+	}
+	if !deleteRecursively && taskCount > 0 {
 		return false, nil
 	}
 
@@ -573,7 +586,11 @@ func (t *TaskService) DeleteFolder(path string, deleteRecursively bool) (bool, e
 	}
 	folderCollection := res.ToIDispatch()
 	defer folderCollection.Release()
-	if !deleteRecursively && oleutil.MustGetProperty(folderCollection, "Count").Val > 0 {
+	folderCount := h.getInt(folderCollection, "Count")
+	if h.err != nil {
+		return false, fmt.Errorf("error getting subfolder count of folder %s: %w", path, h.err)
+	}
+	if !deleteRecursively && folderCount > 0 {
 		return false, nil
 	}
 
@@ -583,9 +600,13 @@ func (t *TaskService) DeleteFolder(path string, deleteRecursively bool) (bool, e
 			taskObj := v.ToIDispatch()
 			defer taskObj.Release()
 
-			name := oleutil.MustGetProperty(taskObj, "Path").ToString()
+			h := &oleHelper{}
+			taskPath := h.getString(taskObj, "Path")
+			if h.err != nil {
+				return h.err
+			}
 
-			return t.DeleteTask(name)
+			return t.DeleteTask(taskPath)
 		}
 		err = oleutil.ForEach(taskCollection, deleteAllTasks)
 		if err != nil {
@@ -623,10 +644,14 @@ func (t *TaskService) DeleteFolder(path string, deleteRecursively bool) (bool, e
 				return err
 			}
 
-			currentFolderPath := oleutil.MustGetProperty(folderObj, "Path").ToString()
+			h := &oleHelper{}
+			currentFolderPath := h.getString(folderObj, "Path")
+			if h.err != nil {
+				return h.err
+			}
 			_, err = oleutil.CallMethod(t.rootFolderObj, "DeleteFolder", currentFolderPath, 0)
 			if err != nil {
-				return fmt.Errorf("error deleting task folder %s: %w", path, getTaskSchedulerError(err))
+				return fmt.Errorf("error deleting task folder %s: %w", currentFolderPath, getTaskSchedulerError(err))
 			}
 
 			return nil
