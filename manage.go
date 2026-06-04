@@ -434,15 +434,17 @@ func (t TaskService) GetTaskFolder(path string) (TaskFolder, error) {
 	return topFolder, nil
 }
 
-// NewTaskDefinition returns a new task definition that can be used to register a new task.
-// Task settings and properties are set to Task Scheduler default values.
-func (t TaskService) NewTaskDefinition() Definition {
+// DefaultDefinition returns a task definition pre-populated with the Task
+// Scheduler default settings. Unlike TaskService.NewTaskDefinition it does not
+// require a connection and does not set RegistrationInfo.Author (which is derived
+// from the connected user), so callers can build definitions without a connected
+// TaskService or when supplying their own RegistrationInfo.
+func DefaultDefinition() Definition {
 	var newDef Definition
 
 	newDef.Principal.LogonType = TASK_LOGON_INTERACTIVE_TOKEN
 	newDef.Principal.RunLevel = TASK_RUNLEVEL_LUA
 
-	newDef.RegistrationInfo.Author = t.connectedDomain + `\` + t.connectedUser
 	newDef.RegistrationInfo.Date = time.Now()
 
 	newDef.Settings.AllowDemandStart = true
@@ -465,6 +467,15 @@ func (t TaskService) NewTaskDefinition() Definition {
 	newDef.Settings.TimeLimit = period.NewHMS(72, 0, 0) // PT72H
 	newDef.Settings.WakeToRun = false
 
+	return newDef
+}
+
+// NewTaskDefinition returns a new task definition that can be used to register a
+// new task. Task settings and properties are set to Task Scheduler default values
+// (see DefaultDefinition) and the Author is set to the connected user.
+func (t TaskService) NewTaskDefinition() Definition {
+	newDef := DefaultDefinition()
+	newDef.RegistrationInfo.Author = t.connectedDomain + `\` + t.connectedUser
 	return newDef
 }
 
