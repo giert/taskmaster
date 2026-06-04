@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"runtime"
 	"strings"
 	"time"
 
@@ -20,39 +21,55 @@ import (
 const S_FALSE = 0x00000001
 
 func (t *TaskService) initialize() error {
-	var err error
+	// COM apartment membership is per-OS-thread, and CoUninitialize must run on
+	// the same thread that called CoInitializeEx. Pin this goroutine to its OS
+	// thread for the lifetime of the connection so initialization, every COM
+	// call, and the CoUninitialize in Disconnect all happen on one thread;
+	// Disconnect performs the matching UnlockOSThread. This is why a TaskService
+	// is not safe for concurrent use and must be created, used, and disconnected
+	// on the same goroutine.
+	runtime.LockOSThread()
 
-	err = ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+	err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
 	if err != nil {
 		oleErr, ok := err.(*ole.OleError)
 		if !ok {
+			runtime.UnlockOSThread()
 			return err
 		}
 		code := oleErr.Code()
 		if code != ole.S_OK && code != S_FALSE {
+			runtime.UnlockOSThread()
 			return err
 		}
 	}
 
+	// On any failure after COM has been initialized, undo CoInitializeEx and the
+	// thread lock so the goroutine is not left pinned.
+	cleanup := func() {
+		ole.CoUninitialize()
+		runtime.UnlockOSThread()
+	}
+
 	schedClassID, err := ole.ClassIDFrom("Schedule.Service.1")
 	if err != nil {
-		ole.CoUninitialize()
+		cleanup()
 		return getTaskSchedulerError(err)
 	}
 	taskSchedulerObj, err := ole.CreateInstance(schedClassID, nil)
 	if err != nil {
-		ole.CoUninitialize()
+		cleanup()
 		return getTaskSchedulerError(err)
 	}
 	if taskSchedulerObj == nil {
-		ole.CoUninitialize()
-		return errors.New("Could not create ITaskService object")
+		cleanup()
+		return errors.New("could not create ITaskService object")
 	}
 	defer taskSchedulerObj.Release()
 
 	tskSchdlr, err := taskSchedulerObj.QueryInterface(ole.IID_IDispatch)
 	if err != nil {
-		ole.CoUninitialize()
+		cleanup()
 		return getTaskSchedulerError(err)
 	}
 	t.taskServiceObj = tskSchdlr
@@ -73,6 +90,11 @@ func Connect() (TaskService, error) {
 // serverName parameter is empty, a connection to the local Task Scheduler service
 // will be attempted. If the user and password parameters are empty, the current
 // token will be used for authentication.
+//
+// Connecting pins the calling goroutine to its OS thread (COM requires the
+// CoInitializeEx/CoUninitialize pair to run on the same thread; see initialize).
+// The returned TaskService is therefore NOT safe for concurrent use: create it,
+// use it, and call Disconnect all from the same goroutine.
 func ConnectWithOptions(serverName, domain, username, password string) (TaskService, error) {
 	var err error
 	var taskService TaskService
@@ -86,12 +108,14 @@ func ConnectWithOptions(serverName, domain, username, password string) (TaskServ
 
 	_, err = oleutil.CallMethod(taskService.taskServiceObj, "Connect", serverName, username, domain, password)
 	if err != nil {
+		taskService.Disconnect()
 		return TaskService{}, fmt.Errorf("error connecting to Task Scheduler service: %w", getTaskSchedulerError(err))
 	}
 
 	if serverName == "" {
 		serverName, err = os.Hostname()
 		if err != nil {
+			taskService.Disconnect()
 			return TaskService{}, err
 		}
 	}
@@ -101,6 +125,7 @@ func ConnectWithOptions(serverName, domain, username, password string) (TaskServ
 	if username == "" {
 		currentUser, err := user.Current()
 		if err != nil {
+			taskService.Disconnect()
 			return TaskService{}, err
 		}
 		// currentUser.Username is usually "DOMAIN\user" on Windows, but fall back to the raw value when no domain prefix is present
@@ -116,6 +141,7 @@ func ConnectWithOptions(serverName, domain, username, password string) (TaskServ
 
 	res, err := oleutil.CallMethod(taskService.taskServiceObj, "GetFolder", `\`)
 	if err != nil {
+		taskService.Disconnect()
 		return TaskService{}, fmt.Errorf("error getting the root folder: %w", getTaskSchedulerError(err))
 	}
 	taskService.rootFolderObj = res.ToIDispatch()
@@ -124,19 +150,25 @@ func ConnectWithOptions(serverName, domain, username, password string) (TaskServ
 	return taskService, nil
 }
 
-// Disconnect frees all the Task Scheduler COM objects that have been created.
-// If this function is not called before the parent program terminates,
-// memory leaks will occur.
+// Disconnect frees all the Task Scheduler COM objects that have been created and
+// releases the OS-thread lock taken when connecting. It must be called, on the
+// same goroutine that connected, before that goroutine exits or the program
+// terminates; otherwise COM objects and the thread lock leak. Disconnect is safe
+// to call more than once.
 func (t *TaskService) Disconnect() {
-	if t.isConnected {
+	if t.taskServiceObj != nil {
 		t.taskServiceObj.Release()
+		t.taskServiceObj = nil
+	}
+	if t.rootFolderObj != nil {
 		t.rootFolderObj.Release()
+		t.rootFolderObj = nil
 	}
 	if t.isInitialized {
 		ole.CoUninitialize()
+		runtime.UnlockOSThread()
+		t.isInitialized = false
 	}
-
-	t.isInitialized = false
 	t.isConnected = false
 }
 
