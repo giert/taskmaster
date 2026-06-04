@@ -24,7 +24,11 @@ func (t *TaskService) initialize() error {
 
 	err = ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
 	if err != nil {
-		code := err.(*ole.OleError).Code()
+		oleErr, ok := err.(*ole.OleError)
+		if !ok {
+			return err
+		}
+		code := oleErr.Code()
 		if code != ole.S_OK && code != S_FALSE {
 			return err
 		}
@@ -95,7 +99,12 @@ func ConnectWithOptions(serverName, domain, username, password string) (TaskServ
 		if err != nil {
 			return TaskService{}, err
 		}
-		username = strings.Split(currentUser.Username, `\`)[1]
+		// currentUser.Username is usually "DOMAIN\user" on Windows, but fall back to the raw value when no domain prefix is present
+		if idx := strings.LastIndex(currentUser.Username, `\`); idx != -1 {
+			username = currentUser.Username[idx+1:]
+		} else {
+			username = currentUser.Username
+		}
 	}
 	taskService.connectedDomain = domain
 	taskService.connectedComputerName = serverName
@@ -172,7 +181,6 @@ func (t *TaskService) GetRegisteredTasks() (RegisteredTaskCollection, error) {
 	defer rootTaskCollection.Release()
 	err = oleutil.ForEach(rootTaskCollection, func(v *ole.VARIANT) error {
 		task := v.ToIDispatch()
-		defer task.Release()
 
 		registeredTask, path, err := parseRegisteredTask(task)
 		if err != nil {
@@ -248,7 +256,7 @@ func (t *TaskService) GetRegisteredTasks() (RegisteredTaskCollection, error) {
 // pointer to it if it exists. If it doesn't exist, nil will be returned in place of
 // the registered task.
 func (t *TaskService) GetRegisteredTask(path string) (RegisteredTask, error) {
-	if path[0] != '\\' {
+	if len(path) == 0 || path[0] != '\\' {
 		return RegisteredTask{}, ErrInvalidPath
 	}
 
@@ -275,7 +283,7 @@ func (t TaskService) GetTaskFolders() (TaskFolder, error) {
 // registered tasks under the folder specified, if it exists. If it doesn't exist, nil will be
 // returned in place of the task folder.
 func (t TaskService) GetTaskFolder(path string) (TaskFolder, error) {
-	if path[0] != '\\' {
+	if len(path) == 0 || path[0] != '\\' {
 		return TaskFolder{}, ErrInvalidPath
 	}
 
@@ -433,7 +441,7 @@ func (t *TaskService) CreateTask(path string, newTaskDef Definition, overwrite b
 func (t *TaskService) CreateTaskEx(path string, newTaskDef Definition, username, password string, logonType TaskLogonType, overwrite bool) (RegisteredTask, bool, error) {
 	var err error
 
-	if path[0] != '\\' {
+	if len(path) == 0 || path[0] != '\\' {
 		return RegisteredTask{}, false, ErrInvalidPath
 	} else if err = validateDefinition(newTaskDef); err != nil {
 		return RegisteredTask{}, false, err
@@ -486,7 +494,7 @@ func (t *TaskService) UpdateTask(path string, newTaskDef Definition) (Registered
 func (t *TaskService) UpdateTaskEx(path string, newTaskDef Definition, username, password string, logonType TaskLogonType) (RegisteredTask, error) {
 	var err error
 
-	if path[0] != '\\' {
+	if len(path) == 0 || path[0] != '\\' {
 		return RegisteredTask{}, ErrInvalidPath
 	} else if err = validateDefinition(newTaskDef); err != nil {
 		return RegisteredTask{}, err
@@ -538,7 +546,7 @@ func (t *TaskService) modifyTask(path string, newTaskDef Definition, username, p
 func (t *TaskService) DeleteFolder(path string, deleteRecursively bool) (bool, error) {
 	var err error
 
-	if path[0] != '\\' {
+	if len(path) == 0 || path[0] != '\\' {
 		return false, ErrInvalidPath
 	}
 
@@ -644,7 +652,7 @@ func (t *TaskService) DeleteFolder(path string, deleteRecursively bool) (bool, e
 func (t *TaskService) DeleteTask(path string) error {
 	var err error
 
-	if path[0] != '\\' {
+	if len(path) == 0 || path[0] != '\\' {
 		return ErrInvalidPath
 	}
 

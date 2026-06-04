@@ -8,9 +8,9 @@ The library has a tendency to panic over even parsing errors. My long-term goal 
 
 ======================= /GIERT'S FORK NOTES> =======================
 
-[![Build status](https://ci.appveyor.com/api/projects/status/b3gllq093c8ex5ew?svg=true)](https://ci.appveyor.com/project/capnspacehook/taskmaster)
-[![Go Report Card](https://goreportcard.com/badge/github.com/capnspacehook/taskmaster)](https://goreportcard.com/report/github.com/capnspacehook/taskmaster)
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/capnspacehook/taskmaster)](https://pkg.go.dev/github.com/capnspacehook/taskmaster)
+[![CI](https://github.com/giert/taskmaster/actions/workflows/ci.yml/badge.svg)](https://github.com/giert/taskmaster/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/giert/taskmaster)](https://goreportcard.com/report/github.com/giert/taskmaster)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/giert/taskmaster)](https://pkg.go.dev/github.com/giert/taskmaster)
 
 # taskmaster
 Windows Task Scheduler Library for Go
