@@ -3,12 +3,7 @@
 
 package taskmaster
 
-import (
-	"errors"
-	"time"
-)
-
-var defaultTime = time.Time{}
+import "errors"
 
 func validateDefinition(def Definition) error {
 	var err error
@@ -49,7 +44,7 @@ func validateTriggers(triggers []Trigger) error {
 		case BootTrigger:
 			// no required fields
 		case DailyTrigger:
-			if t.GetStartBoundary() == defaultTime {
+			if t.GetStartBoundary().IsZero() {
 				return errors.New("invalid DailyTrigger: StartBoundary is required")
 			} else if t.DayInterval > EveryOtherDay {
 				return errors.New("invalid DailyTrigger: invalid DayInterval")
@@ -63,7 +58,7 @@ func validateTriggers(triggers []Trigger) error {
 		case LogonTrigger:
 			// no required fields
 		case MonthlyDOWTrigger:
-			if t.GetStartBoundary() == defaultTime {
+			if t.GetStartBoundary().IsZero() {
 				return errors.New("invalid MonthlyDOWTrigger: StartBoundary is required")
 			} else if t.DaysOfWeek == 0 {
 				return errors.New("invalid MonthlyDOWTrigger: DaysOfWeek is required")
@@ -79,7 +74,7 @@ func validateTriggers(triggers []Trigger) error {
 				return errors.New("invalid MonthlyDOWTrigger: invalid WeeksOfMonth")
 			}
 		case MonthlyTrigger:
-			if t.GetStartBoundary() == defaultTime {
+			if t.GetStartBoundary().IsZero() {
 				return errors.New("invalid MonthlyTrigger: StartBoundary is required")
 			} else if t.DaysOfMonth == 0 {
 				return errors.New("invalid MonthlyTrigger: DaysOfMonth is required")
@@ -97,7 +92,7 @@ func validateTriggers(triggers []Trigger) error {
 		case TimeTrigger:
 			// no required fields
 		case WeeklyTrigger:
-			if t.GetStartBoundary() == defaultTime {
+			if t.GetStartBoundary().IsZero() {
 				return errors.New("invalid WeeklyTrigger: StartBoundary is required")
 			} else if t.DaysOfWeek == 0 {
 				return errors.New("invalid WeeklyTrigger: DaysOfWeek is required")

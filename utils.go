@@ -25,8 +25,7 @@ func IntToDayOfMonth(dayOfMonth int) (DayOfMonth, error) {
 }
 
 func TimeToTaskDate(t time.Time) string {
-	defaultTime := time.Time{}
-	if t == defaultTime {
+	if t.IsZero() {
 		return ""
 	}
 
