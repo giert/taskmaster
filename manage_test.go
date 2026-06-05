@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rickb777/date/period"
+	"github.com/rickb777/period"
 )
 
 func TestLocalConnect(t *testing.T) {

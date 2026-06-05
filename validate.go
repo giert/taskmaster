@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-var defaultTime = time.Time{}
-
 func validateDefinition(def Definition) error {
 	var err error
 
@@ -33,10 +31,8 @@ func validateDefinition(def Definition) error {
 func validateActions(actions []Action) error {
 	for _, action := range actions {
 		switch action.GetType() {
-		case TASK_ACTION_EXEC:
-			return nil
-		case TASK_ACTION_COM_HANDLER:
-			return nil
+		case TASK_ACTION_EXEC, TASK_ACTION_COM_HANDLER:
+			// valid; keep validating the remaining actions
 		default:
 			return errors.New("invalid task action type")
 		}
@@ -47,29 +43,30 @@ func validateActions(actions []Action) error {
 
 func validateTriggers(triggers []Trigger) error {
 	for _, trigger := range triggers {
+		// RepetitionInterval, when set, must be at least one minute; Task Scheduler rejects a smaller value with an opaque "out of range" error.
+		if interval := trigger.GetRepetitionInterval(); !interval.IsZero() && interval.DurationApprox() < time.Minute {
+			return errors.New("invalid trigger: RepetitionInterval must be at least 1 minute")
+		}
+
 		switch t := trigger.(type) {
 		case BootTrigger:
-			return nil
+			// no required fields
 		case DailyTrigger:
-			if t.GetStartBoundary() == defaultTime {
+			if t.GetStartBoundary().IsZero() {
 				return errors.New("invalid DailyTrigger: StartBoundary is required")
 			} else if t.DayInterval > EveryOtherDay {
 				return errors.New("invalid DailyTrigger: invalid DayInterval")
 			}
-
-			return nil
 		case EventTrigger:
 			if t.Subscription == "" {
 				return errors.New("invalid EventTrigger: Subscription is required")
 			}
-
-			return nil
 		case IdleTrigger:
-			return nil
+			// no required fields
 		case LogonTrigger:
-			return nil
+			// no required fields
 		case MonthlyDOWTrigger:
-			if t.GetStartBoundary() == defaultTime {
+			if t.GetStartBoundary().IsZero() {
 				return errors.New("invalid MonthlyDOWTrigger: StartBoundary is required")
 			} else if t.DaysOfWeek == 0 {
 				return errors.New("invalid MonthlyDOWTrigger: DaysOfWeek is required")
@@ -84,10 +81,8 @@ func validateTriggers(triggers []Trigger) error {
 			} else if t.WeeksOfMonth > AllWeeks {
 				return errors.New("invalid MonthlyDOWTrigger: invalid WeeksOfMonth")
 			}
-
-			return nil
 		case MonthlyTrigger:
-			if t.GetStartBoundary() == defaultTime {
+			if t.GetStartBoundary().IsZero() {
 				return errors.New("invalid MonthlyTrigger: StartBoundary is required")
 			} else if t.DaysOfMonth == 0 {
 				return errors.New("invalid MonthlyTrigger: DaysOfMonth is required")
@@ -98,16 +93,16 @@ func validateTriggers(triggers []Trigger) error {
 			} else if t.MonthsOfYear > AllMonths {
 				return errors.New("invalid MonthlyTrigger: invalid MonthsOfYear")
 			}
-
-			return nil
 		case RegistrationTrigger:
-			return nil
+			// no required fields
 		case SessionStateChangeTrigger:
-			return nil
+			// no required fields
 		case TimeTrigger:
-			return nil
+			if t.GetStartBoundary().IsZero() {
+				return errors.New("invalid TimeTrigger: StartBoundary is required")
+			}
 		case WeeklyTrigger:
-			if t.GetStartBoundary() == defaultTime {
+			if t.GetStartBoundary().IsZero() {
 				return errors.New("invalid WeeklyTrigger: StartBoundary is required")
 			} else if t.DaysOfWeek == 0 {
 				return errors.New("invalid WeeklyTrigger: DaysOfWeek is required")
@@ -118,8 +113,6 @@ func validateTriggers(triggers []Trigger) error {
 			} else if t.WeekInterval > EveryOtherWeek {
 				return errors.New("invalid WeeklyTrigger: invalid WeekInterval")
 			}
-
-			return nil
 		default:
 			return errors.New("invalid task trigger type")
 		}

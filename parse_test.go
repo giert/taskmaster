@@ -22,7 +22,7 @@ func TestVariantTimeOrZero(t *testing.T) {
 
 	vtDate := &ole.VARIANT{VT: ole.VT_DATE, Val: int64(math.Float64bits(2.5))}
 	got := variantTimeOrZero(vtDate)
-	expected := time.Date(1900, time.January, 1, 12, 0, 0, 0, time.UTC)
+	expected := time.Date(1900, time.January, 1, 12, 0, 0, 0, time.Local)
 	if !got.Equal(expected) {
 		t.Fatalf("expected %v, got %v", expected, got)
 	}

@@ -1,14 +1,14 @@
+//go:build windows
 // +build windows
 
 package taskmaster
 
 import (
 	"errors"
-	"math"
 	"strings"
 	"time"
 
-	"github.com/rickb777/date/period"
+	"github.com/rickb777/period"
 )
 
 var taskDateFormat = "2006-01-02T15:04:05"
@@ -20,12 +20,11 @@ func IntToDayOfMonth(dayOfMonth int) (DayOfMonth, error) {
 		return 0, errors.New("invalid day of month")
 	}
 
-	return DayOfMonth(math.Exp2(float64(dayOfMonth - 1))), nil
+	return DayOfMonth(1) << (dayOfMonth - 1), nil
 }
 
 func TimeToTaskDate(t time.Time) string {
-	defaultTime := time.Time{}
-	if t == defaultTime {
+	if t.IsZero() {
 		return ""
 	}
 

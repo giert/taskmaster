@@ -55,77 +55,39 @@ func parseRunningTask(task *ole.IDispatch) (RunningTask, error) {
 }
 
 func parseRegisteredTask(task *ole.IDispatch) (RegisteredTask, string, error) {
-	var err error
+	h := &oleHelper{}
 
-	nameVar, err := oleutil.GetProperty(task, "Name")
-	if err != nil {
-		return RegisteredTask{}, "", err
+	name := h.getString(task, "Name")
+	path := h.getString(task, "Path")
+	enabled := h.getBool(task, "Enabled")
+	state := TaskState(h.getInt(task, "State"))
+	missedRuns := uint(h.getInt(task, "NumberOfMissedRuns"))
+	nextRunTime := variantTimeOrZero(h.getVariant(task, "NextRunTime"))
+	lastRunTime := variantTimeOrZero(h.getVariant(task, "LastRunTime"))
+	lastTaskResult := TaskResult(h.getInt(task, "LastTaskResult"))
+	if h.err != nil {
+		return RegisteredTask{}, path, h.err
 	}
-	name := nameVar.ToString()
 
-	pathVar, err := oleutil.GetProperty(task, "Path")
-	if err != nil {
-		return RegisteredTask{}, "", err
+	definition := h.getObject(task, "Definition")
+	if h.err != nil {
+		return RegisteredTask{}, path, h.err
 	}
-	path := pathVar.ToString()
-
-	enabledVar, err := oleutil.GetProperty(task, "Enabled")
-	if err != nil {
-		return RegisteredTask{}, "", err
-	}
-	enabled := enabledVar.Value().(bool)
-
-	stateVar, err := oleutil.GetProperty(task, "State")
-	if err != nil {
-		return RegisteredTask{}, "", err
-	}
-	state := TaskState(stateVar.Val)
-
-	missedRunsVar, err := oleutil.GetProperty(task, "NumberOfMissedRuns")
-	if err != nil {
-		return RegisteredTask{}, "", err
-	}
-	missedRuns := uint(missedRunsVar.Val)
-
-	nextRunTimeVar, err := oleutil.GetProperty(task, "NextRunTime")
-	if err != nil {
-		return RegisteredTask{}, "", err
-	}
-	nextRunTime := variantTimeOrZero(nextRunTimeVar)
-
-	lastRunTimeVar, err := oleutil.GetProperty(task, "LastRunTime")
-	if err != nil {
-		return RegisteredTask{}, "", err
-	}
-	lastRunTime := variantTimeOrZero(lastRunTimeVar)
-
-	lastTaskResultVar, err := oleutil.GetProperty(task, "LastTaskResult")
-	if err != nil {
-		return RegisteredTask{}, "", err
-	}
-	lastTaskResult := TaskResult(lastTaskResultVar.Val)
-
-	definitionVar, err := oleutil.GetProperty(task, "Definition")
-	if err != nil {
-		return RegisteredTask{}, "", err
-	}
-	definition := definitionVar.ToIDispatch()
 	defer definition.Release()
-	actionsVar, err := oleutil.GetProperty(definition, "Actions")
-	if err != nil {
-		return RegisteredTask{}, "", err
+
+	actions := h.getObject(definition, "Actions")
+	if h.err != nil {
+		return RegisteredTask{}, path, h.err
 	}
-	actions := actionsVar.ToIDispatch()
 	defer actions.Release()
 
-	contextVar, err := oleutil.GetProperty(actions, "Context")
-	if err != nil {
-		return RegisteredTask{}, "", err
+	context := h.getString(actions, "Context")
+	if h.err != nil {
+		return RegisteredTask{}, path, h.err
 	}
-	context := contextVar.ToString()
 
 	var taskActions []Action
-	err = oleutil.ForEach(actions, func(v *ole.VARIANT) error {
+	err := oleutil.ForEach(actions, func(v *ole.VARIANT) error {
 		action := v.ToIDispatch()
 		defer action.Release()
 
@@ -139,51 +101,48 @@ func parseRegisteredTask(task *ole.IDispatch) (RegisteredTask, string, error) {
 		return nil
 	})
 	if err != nil {
-		return RegisteredTask{}, path, fmt.Errorf("error parsing IAction object: %v", err)
+		return RegisteredTask{}, path, fmt.Errorf("error parsing IAction object: %w", err)
 	}
 
-	principalVar, err := oleutil.GetProperty(definition, "Principal")
+	principalObj := h.getObject(definition, "Principal")
+	if h.err != nil {
+		return RegisteredTask{}, path, h.err
+	}
+	defer principalObj.Release()
+	taskPrincipal, err := parsePrincipal(principalObj)
 	if err != nil {
-		return RegisteredTask{}, "", err
+		return RegisteredTask{}, path, fmt.Errorf("error parsing IPrincipal object: %w", err)
 	}
-	principal := principalVar.ToIDispatch()
 
-	xmlTextVar, err := oleutil.GetProperty(definition, "XmlText")
-	if err != nil {
-		return RegisteredTask{}, "", err
+	xmlText := h.getString(definition, "XmlText")
+	if h.err != nil {
+		return RegisteredTask{}, path, h.err
 	}
-	xmlText := xmlTextVar.ToString()
 
-	defer principal.Release()
-	taskPrincipal := parsePrincipal(principal)
-
-	regInfoVar, err := oleutil.GetProperty(definition, "RegistrationInfo")
-	if err != nil {
-		return RegisteredTask{}, "", err
+	regInfo := h.getObject(definition, "RegistrationInfo")
+	if h.err != nil {
+		return RegisteredTask{}, path, h.err
 	}
-	regInfo := regInfoVar.ToIDispatch()
 	defer regInfo.Release()
 	registrationInfo, err := parseRegistrationInfo(regInfo)
 	if err != nil {
-		return RegisteredTask{}, path, fmt.Errorf("error parsing IRegistrationInfo object: %v", err)
+		return RegisteredTask{}, path, fmt.Errorf("error parsing IRegistrationInfo object: %w", err)
 	}
 
-	settingsVar, err := oleutil.GetProperty(definition, "Settings")
-	if err != nil {
-		return RegisteredTask{}, "", err
+	settings := h.getObject(definition, "Settings")
+	if h.err != nil {
+		return RegisteredTask{}, path, h.err
 	}
-	settings := settingsVar.ToIDispatch()
 	defer settings.Release()
 	taskSettings, err := parseTaskSettings(settings)
 	if err != nil {
-		return RegisteredTask{}, path, fmt.Errorf("error parsing ITaskSettings object: %v", err)
+		return RegisteredTask{}, path, fmt.Errorf("error parsing ITaskSettings object: %w", err)
 	}
 
-	triggersVar, err := oleutil.GetProperty(definition, "Triggers")
-	if err != nil {
-		return RegisteredTask{}, "", err
+	triggers := h.getObject(definition, "Triggers")
+	if h.err != nil {
+		return RegisteredTask{}, path, h.err
 	}
-	triggers := triggersVar.ToIDispatch()
 	defer triggers.Release()
 
 	var taskTriggers []Trigger
@@ -200,7 +159,7 @@ func parseRegisteredTask(task *ole.IDispatch) (RegisteredTask, string, error) {
 		return nil
 	})
 	if err != nil {
-		return RegisteredTask{}, path, fmt.Errorf("error parsing ITrigger object: %v", err)
+		return RegisteredTask{}, path, fmt.Errorf("error parsing ITrigger object: %w", err)
 	}
 
 	taskDef := Definition{
@@ -230,14 +189,22 @@ func parseRegisteredTask(task *ole.IDispatch) (RegisteredTask, string, error) {
 }
 
 func parseTaskAction(action *ole.IDispatch) (Action, error) {
-	id := oleutil.MustGetProperty(action, "Id").ToString()
-	actionType := TaskActionType(oleutil.MustGetProperty(action, "Type").Val)
+	h := &oleHelper{}
+
+	id := h.getString(action, "Id")
+	actionType := TaskActionType(h.getInt(action, "Type"))
+	if h.err != nil {
+		return nil, h.err
+	}
 
 	switch actionType {
 	case TASK_ACTION_EXEC:
-		args := oleutil.MustGetProperty(action, "Arguments").ToString()
-		path := oleutil.MustGetProperty(action, "Path").ToString()
-		workingDir := oleutil.MustGetProperty(action, "WorkingDirectory").ToString()
+		args := h.getString(action, "Arguments")
+		path := h.getString(action, "Path")
+		workingDir := h.getString(action, "WorkingDirectory")
+		if h.err != nil {
+			return nil, h.err
+		}
 
 		execAction := ExecAction{
 			ID:         id,
@@ -248,8 +215,11 @@ func parseTaskAction(action *ole.IDispatch) (Action, error) {
 
 		return execAction, nil
 	case TASK_ACTION_COM_HANDLER:
-		classID := oleutil.MustGetProperty(action, "ClassId").ToString()
-		data := oleutil.MustGetProperty(action, "Data").ToString()
+		classID := h.getString(action, "ClassId")
+		data := h.getString(action, "Data")
+		if h.err != nil {
+			return nil, h.err
+		}
 
 		comHandlerAction := ComHandlerAction{
 			ID:      id,
@@ -263,13 +233,18 @@ func parseTaskAction(action *ole.IDispatch) (Action, error) {
 	}
 }
 
-func parsePrincipal(principleObj *ole.IDispatch) Principal {
-	name := oleutil.MustGetProperty(principleObj, "DisplayName").ToString()
-	groupID := oleutil.MustGetProperty(principleObj, "GroupId").ToString()
-	id := oleutil.MustGetProperty(principleObj, "Id").ToString()
-	logonType := TaskLogonType(oleutil.MustGetProperty(principleObj, "LogonType").Val)
-	runLevel := TaskRunLevel(oleutil.MustGetProperty(principleObj, "RunLevel").Val)
-	userID := oleutil.MustGetProperty(principleObj, "UserId").ToString()
+func parsePrincipal(principleObj *ole.IDispatch) (Principal, error) {
+	h := &oleHelper{}
+
+	name := h.getString(principleObj, "DisplayName")
+	groupID := h.getString(principleObj, "GroupId")
+	id := h.getString(principleObj, "Id")
+	logonType := TaskLogonType(h.getInt(principleObj, "LogonType"))
+	runLevel := TaskRunLevel(h.getInt(principleObj, "RunLevel"))
+	userID := h.getString(principleObj, "UserId")
+	if h.err != nil {
+		return Principal{}, h.err
+	}
 
 	principle := Principal{
 		Name:      name,
@@ -280,21 +255,28 @@ func parsePrincipal(principleObj *ole.IDispatch) Principal {
 		UserID:    userID,
 	}
 
-	return principle
+	return principle, nil
 }
 
 func parseRegistrationInfo(regInfo *ole.IDispatch) (*RegistrationInfo, error) {
-	author := oleutil.MustGetProperty(regInfo, "Author").ToString()
-	date, err := TaskDateToTime(oleutil.MustGetProperty(regInfo, "Date").ToString())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing Date field: %v", err)
+	h := &oleHelper{}
+
+	author := h.getString(regInfo, "Author")
+	dateStr := h.getString(regInfo, "Date")
+	description := h.getString(regInfo, "Description")
+	documentation := h.getString(regInfo, "Documentation")
+	securityDescriptor := h.getString(regInfo, "SecurityDescriptor")
+	source := h.getString(regInfo, "Source")
+	uri := h.getString(regInfo, "URI")
+	version := h.getString(regInfo, "Version")
+	if h.err != nil {
+		return nil, h.err
 	}
-	description := oleutil.MustGetProperty(regInfo, "Description").ToString()
-	documentation := oleutil.MustGetProperty(regInfo, "Documentation").ToString()
-	securityDescriptor := oleutil.MustGetProperty(regInfo, "SecurityDescriptor").ToString()
-	source := oleutil.MustGetProperty(regInfo, "Source").ToString()
-	uri := oleutil.MustGetProperty(regInfo, "URI").ToString()
-	version := oleutil.MustGetProperty(regInfo, "Version").ToString()
+
+	date, err := TaskDateToTime(dateStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing Date field: %w", err)
+	}
 
 	registrationInfo := &RegistrationInfo{
 		Author:             author,
@@ -311,49 +293,70 @@ func parseRegistrationInfo(regInfo *ole.IDispatch) (*RegistrationInfo, error) {
 }
 
 func parseTaskSettings(settings *ole.IDispatch) (*TaskSettings, error) {
-	allowDemandStart := oleutil.MustGetProperty(settings, "AllowDemandStart").Value().(bool)
-	allowHardTerminate := oleutil.MustGetProperty(settings, "AllowHardTerminate").Value().(bool)
-	compatibility := TaskCompatibility(oleutil.MustGetProperty(settings, "Compatibility").Val)
-	deleteExpiredTaskAfter := oleutil.MustGetProperty(settings, "DeleteExpiredTaskAfter").ToString()
-	dontStartOnBatteries := oleutil.MustGetProperty(settings, "DisallowStartIfOnBatteries").Value().(bool)
-	enabled := oleutil.MustGetProperty(settings, "Enabled").Value().(bool)
-	timeLimit, err := StringToPeriod(oleutil.MustGetProperty(settings, "ExecutionTimeLimit").ToString())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing ExecutionTimeLimit field: %v", err)
-	}
-	hidden := oleutil.MustGetProperty(settings, "Hidden").Value().(bool)
+	h := &oleHelper{}
 
-	idleSettings := oleutil.MustGetProperty(settings, "IdleSettings").ToIDispatch()
+	allowDemandStart := h.getBool(settings, "AllowDemandStart")
+	allowHardTerminate := h.getBool(settings, "AllowHardTerminate")
+	compatibility := TaskCompatibility(h.getInt(settings, "Compatibility"))
+	deleteExpiredTaskAfter := h.getString(settings, "DeleteExpiredTaskAfter")
+	dontStartOnBatteries := h.getBool(settings, "DisallowStartIfOnBatteries")
+	enabled := h.getBool(settings, "Enabled")
+	timeLimitStr := h.getString(settings, "ExecutionTimeLimit")
+	hidden := h.getBool(settings, "Hidden")
+	if h.err != nil {
+		return nil, h.err
+	}
+	timeLimit, err := StringToPeriod(timeLimitStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing ExecutionTimeLimit field: %w", err)
+	}
+
+	idleSettings := h.getObject(settings, "IdleSettings")
+	if h.err != nil {
+		return nil, h.err
+	}
 	defer idleSettings.Release()
-	idleDuration, err := StringToPeriod(oleutil.MustGetProperty(idleSettings, "IdleDuration").ToString())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing IdleDuration field: %v", err)
+	idleDurationStr := h.getString(idleSettings, "IdleDuration")
+	restartOnIdle := h.getBool(idleSettings, "RestartOnIdle")
+	stopOnIdleEnd := h.getBool(idleSettings, "StopOnIdleEnd")
+	waitTimeoutStr := h.getString(idleSettings, "WaitTimeout")
+	if h.err != nil {
+		return nil, h.err
 	}
-	restartOnIdle := oleutil.MustGetProperty(idleSettings, "RestartOnIdle").Value().(bool)
-	stopOnIdleEnd := oleutil.MustGetProperty(idleSettings, "StopOnIdleEnd").Value().(bool)
-	waitTimeOut, err := StringToPeriod(oleutil.MustGetProperty(idleSettings, "WaitTimeout").ToString())
+	idleDuration, err := StringToPeriod(idleDurationStr)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing WaitTimeout field: %v", err)
+		return nil, fmt.Errorf("error parsing IdleDuration field: %w", err)
+	}
+	waitTimeOut, err := StringToPeriod(waitTimeoutStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing WaitTimeout field: %w", err)
 	}
 
-	multipleInstances := TaskInstancesPolicy(oleutil.MustGetProperty(settings, "MultipleInstances").Val)
+	multipleInstances := TaskInstancesPolicy(h.getInt(settings, "MultipleInstances"))
 
-	networkSettings := oleutil.MustGetProperty(settings, "NetworkSettings").ToIDispatch()
+	networkSettings := h.getObject(settings, "NetworkSettings")
+	if h.err != nil {
+		return nil, h.err
+	}
 	defer networkSettings.Release()
-	id := oleutil.MustGetProperty(networkSettings, "Id").ToString()
-	name := oleutil.MustGetProperty(networkSettings, "Name").ToString()
+	id := h.getString(networkSettings, "Id")
+	networkName := h.getString(networkSettings, "Name")
 
-	priority := uint(oleutil.MustGetProperty(settings, "Priority").Val)
-	restartCount := uint(oleutil.MustGetProperty(settings, "RestartCount").Val)
-	restartInterval, err := StringToPeriod(oleutil.MustGetProperty(settings, "RestartInterval").ToString())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing RestartInterval field: %v", err)
+	priority := uint(h.getInt(settings, "Priority"))
+	restartCount := uint(h.getInt(settings, "RestartCount"))
+	restartIntervalStr := h.getString(settings, "RestartInterval")
+	runOnlyIfIdle := h.getBool(settings, "RunOnlyIfIdle")
+	runOnlyIfNetworkAvailable := h.getBool(settings, "RunOnlyIfNetworkAvailable")
+	startWhenAvailable := h.getBool(settings, "StartWhenAvailable")
+	stopIfGoingOnBatteries := h.getBool(settings, "StopIfGoingOnBatteries")
+	wakeToRun := h.getBool(settings, "WakeToRun")
+	if h.err != nil {
+		return nil, h.err
 	}
-	runOnlyIfIdle := oleutil.MustGetProperty(settings, "RunOnlyIfIdle").Value().(bool)
-	runOnlyIfNetworkAvailable := oleutil.MustGetProperty(settings, "RunOnlyIfNetworkAvailable").Value().(bool)
-	startWhenAvailable := oleutil.MustGetProperty(settings, "StartWhenAvailable").Value().(bool)
-	stopIfGoingOnBatteries := oleutil.MustGetProperty(settings, "StopIfGoingOnBatteries").Value().(bool)
-	wakeToRun := oleutil.MustGetProperty(settings, "WakeToRun").Value().(bool)
+	restartInterval, err := StringToPeriod(restartIntervalStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing RestartInterval field: %w", err)
+	}
 
 	idleTaskSettings := IdleSettings{
 		IdleDuration:  idleDuration,
@@ -364,7 +367,7 @@ func parseTaskSettings(settings *ole.IDispatch) (*TaskSettings, error) {
 
 	networkTaskSettings := NetworkSettings{
 		ID:   id,
-		Name: name,
+		Name: networkName,
 	}
 
 	taskSettings := &TaskSettings{
@@ -393,34 +396,53 @@ func parseTaskSettings(settings *ole.IDispatch) (*TaskSettings, error) {
 }
 
 func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
-	enabled := oleutil.MustGetProperty(trigger, "Enabled").Value().(bool)
-	endBoundary, err := TaskDateToTime(oleutil.MustGetProperty(trigger, "EndBoundary").ToString())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing EndBoundary field: %v", err)
-	}
-	executionTimeLimit, err := StringToPeriod(oleutil.MustGetProperty(trigger, "ExecutionTimeLimit").ToString())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing ExecutionTimeLimit field: %v", err)
-	}
-	id := oleutil.MustGetProperty(trigger, "Id").ToString()
+	h := &oleHelper{}
 
-	repetition := oleutil.MustGetProperty(trigger, "Repetition").ToIDispatch()
+	enabled := h.getBool(trigger, "Enabled")
+	endBoundaryStr := h.getString(trigger, "EndBoundary")
+	executionTimeLimitStr := h.getString(trigger, "ExecutionTimeLimit")
+	id := h.getString(trigger, "Id")
+	if h.err != nil {
+		return nil, h.err
+	}
+	endBoundary, err := TaskDateToTime(endBoundaryStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing EndBoundary field: %w", err)
+	}
+	executionTimeLimit, err := StringToPeriod(executionTimeLimitStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing ExecutionTimeLimit field: %w", err)
+	}
+
+	repetition := h.getObject(trigger, "Repetition")
+	if h.err != nil {
+		return nil, h.err
+	}
 	defer repetition.Release()
-	duration, err := StringToPeriod(oleutil.MustGetProperty(repetition, "Duration").ToString())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing Duration field: %v", err)
+	durationStr := h.getString(repetition, "Duration")
+	intervalStr := h.getString(repetition, "Interval")
+	stopAtDurationEnd := h.getBool(repetition, "StopAtDurationEnd")
+	if h.err != nil {
+		return nil, h.err
 	}
-	interval, err := StringToPeriod(oleutil.MustGetProperty(repetition, "Interval").ToString())
+	duration, err := StringToPeriod(durationStr)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing Interval field: %v", err)
+		return nil, fmt.Errorf("error parsing Duration field: %w", err)
 	}
-	stopAtDurationEnd := oleutil.MustGetProperty(repetition, "StopAtDurationEnd").Value().(bool)
+	interval, err := StringToPeriod(intervalStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing Interval field: %w", err)
+	}
 
-	startBoundary, err := TaskDateToTime(oleutil.MustGetProperty(trigger, "StartBoundary").ToString())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing StartBoundary field: %v", err)
+	startBoundaryStr := h.getString(trigger, "StartBoundary")
+	triggerType := TaskTriggerType(h.getInt(trigger, "Type"))
+	if h.err != nil {
+		return nil, h.err
 	}
-	triggerType := TaskTriggerType(oleutil.MustGetProperty(trigger, "Type").Val)
+	startBoundary, err := TaskDateToTime(startBoundaryStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing StartBoundary field: %w", err)
+	}
 
 	taskTriggerObj := TaskTrigger{
 		Enabled:            enabled,
@@ -437,9 +459,13 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 
 	switch triggerType {
 	case TASK_TRIGGER_BOOT:
-		delay, err := StringToPeriod(oleutil.MustGetProperty(trigger, "Delay").ToString())
+		delayStr := h.getString(trigger, "Delay")
+		if h.err != nil {
+			return nil, h.err
+		}
+		delay, err := StringToPeriod(delayStr)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing IBootTrigger object: error parsing Delay field: %v", err)
+			return nil, fmt.Errorf("error parsing IBootTrigger object: error parsing Delay field: %w", err)
 		}
 
 		bootTrigger := BootTrigger{
@@ -449,10 +475,14 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 
 		return bootTrigger, nil
 	case TASK_TRIGGER_DAILY:
-		daysInterval := DayInterval(oleutil.MustGetProperty(trigger, "DaysInterval").Val)
-		randomDelay, err := StringToPeriod(oleutil.MustGetProperty(trigger, "RandomDelay").ToString())
+		daysInterval := DayInterval(h.getInt(trigger, "DaysInterval"))
+		randomDelayStr := h.getString(trigger, "RandomDelay")
+		if h.err != nil {
+			return nil, h.err
+		}
+		randomDelay, err := StringToPeriod(randomDelayStr)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing IDailyTrigger object: error parsing RandomDelay field: %v", err)
+			return nil, fmt.Errorf("error parsing IDailyTrigger object: error parsing RandomDelay field: %w", err)
 		}
 
 		dailyTrigger := DailyTrigger{
@@ -463,26 +493,41 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 
 		return dailyTrigger, nil
 	case TASK_TRIGGER_EVENT:
-		delay, err := StringToPeriod(oleutil.MustGetProperty(trigger, "Delay").ToString())
-		if err != nil {
-			return nil, fmt.Errorf("error parsing IEventTrigger object: error parsing Delay field: %v", err)
+		delayStr := h.getString(trigger, "Delay")
+		subscription := h.getString(trigger, "Subscription")
+		if h.err != nil {
+			return nil, h.err
 		}
-		subscription := oleutil.MustGetProperty(trigger, "Subscription").ToString()
-		valueQueriesObj := oleutil.MustGetProperty(trigger, "ValueQueries").ToIDispatch()
+		delay, err := StringToPeriod(delayStr)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing IEventTrigger object: error parsing Delay field: %w", err)
+		}
+
+		valueQueriesObj := h.getObject(trigger, "ValueQueries")
+		if h.err != nil {
+			return nil, h.err
+		}
 		defer valueQueriesObj.Release()
 
 		valQueryMap := make(map[string]string)
-		oleutil.ForEach(valueQueriesObj, func(v *ole.VARIANT) error {
+		err = oleutil.ForEach(valueQueriesObj, func(v *ole.VARIANT) error {
 			valueQuery := v.ToIDispatch()
 			defer valueQuery.Release()
 
-			name := oleutil.MustGetProperty(valueQuery, "Name").ToString()
-			value := oleutil.MustGetProperty(valueQuery, "Value").ToString()
+			vh := &oleHelper{}
+			name := vh.getString(valueQuery, "Name")
+			value := vh.getString(valueQuery, "Value")
+			if vh.err != nil {
+				return vh.err
+			}
 
 			valQueryMap[name] = value
 
 			return nil
 		})
+		if err != nil {
+			return nil, fmt.Errorf("error parsing IEventTrigger ValueQueries: %w", err)
+		}
 
 		eventTrigger := EventTrigger{
 			TaskTrigger:  taskTriggerObj,
@@ -499,11 +544,15 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 
 		return idleTrigger, nil
 	case TASK_TRIGGER_LOGON:
-		delay, err := StringToPeriod(oleutil.MustGetProperty(trigger, "Delay").ToString())
-		if err != nil {
-			return nil, fmt.Errorf("error parsing ILogonTrigger object: error parsing Delay field: %v", err)
+		delayStr := h.getString(trigger, "Delay")
+		userID := h.getString(trigger, "UserId")
+		if h.err != nil {
+			return nil, h.err
 		}
-		userID := oleutil.MustGetProperty(trigger, "UserId").ToString()
+		delay, err := StringToPeriod(delayStr)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing ILogonTrigger object: error parsing Delay field: %w", err)
+		}
 
 		logonTrigger := LogonTrigger{
 			TaskTrigger: taskTriggerObj,
@@ -513,14 +562,18 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 
 		return logonTrigger, nil
 	case TASK_TRIGGER_MONTHLYDOW:
-		daysOfWeek := DayOfWeek(oleutil.MustGetProperty(trigger, "DaysOfWeek").Val)
-		monthsOfYear := Month(oleutil.MustGetProperty(trigger, "MonthsOfYear").Val)
-		randomDelay, err := StringToPeriod(oleutil.MustGetProperty(trigger, "RandomDelay").ToString())
-		if err != nil {
-			return nil, fmt.Errorf("error parsing IMonthlyDOWTrigger object: error parsing RandomDelay field: %v", err)
+		daysOfWeek := DayOfWeek(h.getInt(trigger, "DaysOfWeek"))
+		monthsOfYear := Month(h.getInt(trigger, "MonthsOfYear"))
+		randomDelayStr := h.getString(trigger, "RandomDelay")
+		runOnLastWeekOfMonth := h.getBool(trigger, "RunOnLastWeekOfMonth")
+		weeksOfMonth := Week(h.getInt(trigger, "WeeksOfMonth"))
+		if h.err != nil {
+			return nil, h.err
 		}
-		runOnLastWeekOfMonth := oleutil.MustGetProperty(trigger, "RunOnLastWeekOfMonth").Value().(bool)
-		weeksOfMonth := Week(oleutil.MustGetProperty(trigger, "WeeksOfMonth").Val)
+		randomDelay, err := StringToPeriod(randomDelayStr)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing IMonthlyDOWTrigger object: error parsing RandomDelay field: %w", err)
+		}
 
 		monthlyDOWTrigger := MonthlyDOWTrigger{
 			TaskTrigger:          taskTriggerObj,
@@ -533,13 +586,17 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 
 		return monthlyDOWTrigger, nil
 	case TASK_TRIGGER_MONTHLY:
-		daysOfMonth := DayOfMonth(oleutil.MustGetProperty(trigger, "DaysOfMonth").Val)
-		monthsOfYear := Month(oleutil.MustGetProperty(trigger, "MonthsOfYear").Val)
-		randomDelay, err := StringToPeriod(oleutil.MustGetProperty(trigger, "RandomDelay").ToString())
-		if err != nil {
-			return nil, fmt.Errorf("error parsing IMonthlyTrigger object: error parsing RandomDelay field: %v", err)
+		daysOfMonth := DayOfMonth(h.getInt(trigger, "DaysOfMonth"))
+		monthsOfYear := Month(h.getInt(trigger, "MonthsOfYear"))
+		randomDelayStr := h.getString(trigger, "RandomDelay")
+		runOnLastDayOfMonth := h.getBool(trigger, "RunOnLastDayOfMonth")
+		if h.err != nil {
+			return nil, h.err
 		}
-		runOnLastDayOfMonth := oleutil.MustGetProperty(trigger, "RunOnLastDayOfMonth").Value().(bool)
+		randomDelay, err := StringToPeriod(randomDelayStr)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing IMonthlyTrigger object: error parsing RandomDelay field: %w", err)
+		}
 
 		monthlyTrigger := MonthlyTrigger{
 			TaskTrigger:         taskTriggerObj,
@@ -551,10 +608,15 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 
 		return monthlyTrigger, nil
 	case TASK_TRIGGER_REGISTRATION:
-		delay, err := StringToPeriod(oleutil.MustGetProperty(trigger, "Delay").ToString())
-		if err != nil {
-			return nil, fmt.Errorf("error parsing IRegistrationTrigger object: error parsing Delay field: %v", err)
+		delayStr := h.getString(trigger, "Delay")
+		if h.err != nil {
+			return nil, h.err
 		}
+		delay, err := StringToPeriod(delayStr)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing IRegistrationTrigger object: error parsing Delay field: %w", err)
+		}
+
 		registrationTrigger := RegistrationTrigger{
 			TaskTrigger: taskTriggerObj,
 			Delay:       delay,
@@ -562,10 +624,15 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 
 		return registrationTrigger, nil
 	case TASK_TRIGGER_TIME:
-		randomDelay, err := StringToPeriod(oleutil.MustGetProperty(trigger, "RandomDelay").ToString())
-		if err != nil {
-			return nil, fmt.Errorf("error parsing ITimeTrigger object: error parsing RandomDelay field: %v", err)
+		randomDelayStr := h.getString(trigger, "RandomDelay")
+		if h.err != nil {
+			return nil, h.err
 		}
+		randomDelay, err := StringToPeriod(randomDelayStr)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing ITimeTrigger object: error parsing RandomDelay field: %w", err)
+		}
+
 		timetrigger := TimeTrigger{
 			TaskTrigger: taskTriggerObj,
 			RandomDelay: randomDelay,
@@ -573,12 +640,16 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 
 		return timetrigger, nil
 	case TASK_TRIGGER_WEEKLY:
-		daysOfWeek := DayOfWeek(oleutil.MustGetProperty(trigger, "DaysOfWeek").Val)
-		randomDelay, err := StringToPeriod(oleutil.MustGetProperty(trigger, "RandomDelay").ToString())
-		if err != nil {
-			return nil, fmt.Errorf("error parsing IWeeklyTrigger object: error parsing RandomDelay field: %v", err)
+		daysOfWeek := DayOfWeek(h.getInt(trigger, "DaysOfWeek"))
+		randomDelayStr := h.getString(trigger, "RandomDelay")
+		weeksInterval := WeekInterval(h.getInt(trigger, "WeeksInterval"))
+		if h.err != nil {
+			return nil, h.err
 		}
-		weeksInterval := WeekInterval(oleutil.MustGetProperty(trigger, "WeeksInterval").Val)
+		randomDelay, err := StringToPeriod(randomDelayStr)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing IWeeklyTrigger object: error parsing RandomDelay field: %w", err)
+		}
 
 		weeklyTrigger := WeeklyTrigger{
 			TaskTrigger:  taskTriggerObj,
@@ -589,12 +660,16 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 
 		return weeklyTrigger, nil
 	case TASK_TRIGGER_SESSION_STATE_CHANGE:
-		delay, err := StringToPeriod(oleutil.MustGetProperty(trigger, "Delay").ToString())
-		if err != nil {
-			return nil, fmt.Errorf("error parsing ISessionStateChangeTrigger object: error parsing RandomDelay field: %v", err)
+		delayStr := h.getString(trigger, "Delay")
+		stateChange := TaskSessionStateChangeType(h.getInt(trigger, "StateChange"))
+		userID := h.getString(trigger, "UserId")
+		if h.err != nil {
+			return nil, h.err
 		}
-		stateChange := TaskSessionStateChangeType(oleutil.MustGetProperty(trigger, "StateChange").Val)
-		userID := oleutil.MustGetProperty(trigger, "UserId").ToString()
+		delay, err := StringToPeriod(delayStr)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing ISessionStateChangeTrigger object: error parsing Delay field: %w", err)
+		}
 
 		sessionStateChangeTrigger := SessionStateChangeTrigger{
 			TaskTrigger: taskTriggerObj,
@@ -636,5 +711,6 @@ func oleDateToTime(value float64) time.Time {
 	dayDuration := time.Duration(int64(days)) * day
 	fracDuration := time.Duration(frac * float64(day))
 
-	return oleAutomationEpoch.Add(dayDuration + fracDuration)
+	wall := oleAutomationEpoch.Add(dayDuration + fracDuration)
+	return time.Date(wall.Year(), wall.Month(), wall.Day(), wall.Hour(), wall.Minute(), wall.Second(), wall.Nanosecond(), time.Local)
 }
