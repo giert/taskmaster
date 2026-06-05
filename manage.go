@@ -309,6 +309,51 @@ func (t *TaskService) GetRegisteredTask(path string) (RegisteredTask, error) {
 	return task, nil
 }
 
+// GetTasksInFolder returns the registered tasks located directly in the folder at
+// the given path, without recursing into subfolders. Unlike GetTaskFolder it does
+// not build the whole folder tree, so it is cheaper when only one folder's tasks
+// are needed. The caller must Release the returned collection.
+func (t TaskService) GetTasksInFolder(path string) (RegisteredTaskCollection, error) {
+	if len(path) == 0 || path[0] != '\\' {
+		return nil, ErrInvalidPath
+	}
+
+	folderObj := t.rootFolderObj
+	if path != `\` {
+		folder, err := oleutil.CallMethod(t.taskServiceObj, "GetFolder", path)
+		if err != nil {
+			return nil, fmt.Errorf("error getting folder %s: %w", path, getTaskSchedulerError(err))
+		}
+		folderObj = folder.ToIDispatch()
+		defer folderObj.Release()
+	}
+
+	res, err := oleutil.CallMethod(folderObj, "GetTasks", int(TASK_ENUM_HIDDEN))
+	if err != nil {
+		return nil, fmt.Errorf("error getting tasks of folder %s: %w", path, getTaskSchedulerError(err))
+	}
+	taskCollection := res.ToIDispatch()
+	defer taskCollection.Release()
+
+	var registeredTasks RegisteredTaskCollection
+	err = oleutil.ForEach(taskCollection, func(v *ole.VARIANT) error {
+		task := v.ToIDispatch()
+
+		registeredTask, taskPath, err := parseRegisteredTask(task)
+		if err != nil {
+			return fmt.Errorf("error parsing registered task %s: %w", taskPath, err)
+		}
+		registeredTasks = append(registeredTasks, registeredTask)
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return registeredTasks, nil
+}
+
 // GetTaskFolders enumerates the Task Schedule database for all task folders and currently
 // registered tasks.
 func (t TaskService) GetTaskFolders() (TaskFolder, error) {
