@@ -1,4 +1,4 @@
-======================== GIERT'S FORK NOTES ========================
+============================ GIERT'S FORK NOTES ============================
 
 Maintained, hardened fork. Compared with upstream:
   - Requires Go 1.22+; dependencies updated (go-ole, and the deprecated
@@ -11,7 +11,7 @@ the same goroutine. Releases are tagged; pin a version (or commit).
 
 I also added a list of gotchas that have bitten me over the years at the bottom of the readme.
 
-======================= /GIERT'S FORK NOTES> =======================
+=========================== /GIERT'S FORK NOTES ===========================
 
 [![CI](https://github.com/giert/taskmaster/actions/workflows/ci.yml/badge.svg)](https://github.com/giert/taskmaster/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/giert/taskmaster)](https://goreportcard.com/report/github.com/giert/taskmaster)
@@ -48,4 +48,4 @@ This library faithfully exposes most of Windows Task Scheduler's rough edges rat
 - **`DeleteExpiredTaskAfter` only takes effect if a trigger has an `EndBoundary`.**
 - **`Settings.Compatibility`** must match the features used — multiple triggers or actions need `TASK_COMPATIBILITY_V2` or newer (the default here).
 
-====================== /GIERT'S TASK SCHEDULER GOTCHAS =====================
+===================== /GIERT'S TASK SCHEDULER GOTCHAS =====================
