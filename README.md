@@ -1,10 +1,13 @@
 ======================== GIERT'S FORK NOTES ========================
 
-Updates dependencies and implements an interval fix from pull request #22 in the original project.
+Maintained, hardened fork. Compared with upstream:
+  - Requires Go 1.22+; dependencies updated (go-ole, and the deprecated
+    rickb777/date replaced with the maintained rickb777/period).
+  - Parsing/COM errors are returned instead of panicking (no recover() needed).
+  - Assorted bug fixes and a couple of API additions.
 
-The updates to go-ole are especially important! Don't wast time on strange errors in production like I did...
-
-The library has a tendency to panic over even parsing errors. My long-term goal is to gradually transition to returning normal errors in more cases.
+Note: a TaskService is not goroutine-safe — create, use, and Disconnect it on
+the same goroutine. Releases are tagged; pin a version (or commit).
 
 ======================= /GIERT'S FORK NOTES> =======================
 
