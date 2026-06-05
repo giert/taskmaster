@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rickb777/date/period"
+	"github.com/rickb777/period"
 )
 
 func TestTaskDateToTime(t *testing.T) {

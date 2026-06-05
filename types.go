@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/go-ole/go-ole"
-	"github.com/rickb777/date/period"
+	"github.com/rickb777/period"
 )
 
 // DayOfWeek is a day of the week.

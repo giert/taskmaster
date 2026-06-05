@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rickb777/date/period"
+	"github.com/rickb777/period"
 )
 
 var taskDateFormat = "2006-01-02T15:04:05"

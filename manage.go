@@ -14,7 +14,7 @@ import (
 
 	ole "github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
-	"github.com/rickb777/date/period"
+	"github.com/rickb777/period"
 )
 
 // S_FALSE is returned by CoInitialize if it was already called on this thread.
