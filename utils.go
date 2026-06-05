@@ -5,7 +5,6 @@ package taskmaster
 
 import (
 	"errors"
-	"math"
 	"strings"
 	"time"
 
@@ -21,7 +20,7 @@ func IntToDayOfMonth(dayOfMonth int) (DayOfMonth, error) {
 		return 0, errors.New("invalid day of month")
 	}
 
-	return DayOfMonth(math.Exp2(float64(dayOfMonth - 1))), nil
+	return DayOfMonth(1) << (dayOfMonth - 1), nil
 }
 
 func TimeToTaskDate(t time.Time) string {
