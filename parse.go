@@ -711,5 +711,6 @@ func oleDateToTime(value float64) time.Time {
 	dayDuration := time.Duration(int64(days)) * day
 	fracDuration := time.Duration(frac * float64(day))
 
-	return oleAutomationEpoch.Add(dayDuration + fracDuration)
+	wall := oleAutomationEpoch.Add(dayDuration + fracDuration)
+	return time.Date(wall.Year(), wall.Month(), wall.Day(), wall.Hour(), wall.Minute(), wall.Second(), wall.Nanosecond(), time.Local)
 }
