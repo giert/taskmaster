@@ -7,6 +7,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/rickb777/period"
 )
 
 // fakeAction is an Action whose type is not supported, used to exercise the
@@ -66,6 +68,10 @@ func TestValidateTriggers(t *testing.T) {
 		{name: "weekly missing days", triggers: []Trigger{WeeklyTrigger{WeekInterval: EveryWeek, TaskTrigger: withStart}}, wantErr: true},
 		{name: "monthly ok", triggers: []Trigger{MonthlyTrigger{DaysOfMonth: One, MonthsOfYear: January, TaskTrigger: withStart}}},
 		{name: "monthly dow ok", triggers: []Trigger{MonthlyDOWTrigger{DaysOfWeek: Monday, WeeksOfMonth: First, MonthsOfYear: January, TaskTrigger: withStart}}},
+		{name: "time ok", triggers: []Trigger{TimeTrigger{TaskTrigger: withStart}}},
+		{name: "time missing start boundary", triggers: []Trigger{TimeTrigger{}}, wantErr: true},
+		{name: "sub-minute repetition interval", triggers: []Trigger{BootTrigger{TaskTrigger: TaskTrigger{RepetitionPattern: RepetitionPattern{RepetitionInterval: period.NewHMS(0, 0, 30)}}}}, wantErr: true},
+		{name: "one-minute repetition interval ok", triggers: []Trigger{BootTrigger{TaskTrigger: TaskTrigger{RepetitionPattern: RepetitionPattern{RepetitionInterval: period.NewHMS(0, 1, 0)}}}}},
 		{name: "unsupported type", triggers: []Trigger{fakeTrigger{}}, wantErr: true},
 		// regression: a valid first trigger must not mask an invalid later one
 		{name: "valid then invalid", triggers: []Trigger{BootTrigger{}, DailyTrigger{DayInterval: EveryDay}}, wantErr: true},

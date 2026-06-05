@@ -3,7 +3,10 @@
 
 package taskmaster
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 func validateDefinition(def Definition) error {
 	var err error
@@ -40,6 +43,11 @@ func validateActions(actions []Action) error {
 
 func validateTriggers(triggers []Trigger) error {
 	for _, trigger := range triggers {
+		// RepetitionInterval, when set, must be at least one minute; Task Scheduler rejects a smaller value with an opaque "out of range" error.
+		if interval := trigger.GetRepetitionInterval(); !interval.IsZero() && interval.DurationApprox() < time.Minute {
+			return errors.New("invalid trigger: RepetitionInterval must be at least 1 minute")
+		}
+
 		switch t := trigger.(type) {
 		case BootTrigger:
 			// no required fields
@@ -90,7 +98,9 @@ func validateTriggers(triggers []Trigger) error {
 		case SessionStateChangeTrigger:
 			// no required fields
 		case TimeTrigger:
-			// no required fields
+			if t.GetStartBoundary().IsZero() {
+				return errors.New("invalid TimeTrigger: StartBoundary is required")
+			}
 		case WeeklyTrigger:
 			if t.GetStartBoundary().IsZero() {
 				return errors.New("invalid WeeklyTrigger: StartBoundary is required")
