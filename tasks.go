@@ -24,7 +24,7 @@ func (d *Definition) AddTrigger(trigger Trigger) {
 func (r RunningTask) Refresh() error {
 	_, err := oleutil.CallMethod(r.taskObj, "Refresh")
 	if err != nil {
-		return fmt.Errorf("error refreshing running task %s: %v", r.Path, getTaskSchedulerError(err))
+		return fmt.Errorf("error refreshing running task %s: %w", r.Path, getTaskSchedulerError(err))
 	}
 
 	return nil
@@ -35,7 +35,7 @@ func (r RunningTask) Refresh() error {
 func (r *RunningTask) Stop() error {
 	_, err := oleutil.CallMethod(r.taskObj, "Stop")
 	if err != nil {
-		return fmt.Errorf("error stopping running task %s: %v", r.Path, getTaskSchedulerError(err))
+		return fmt.Errorf("error stopping running task %s: %w", r.Path, getTaskSchedulerError(err))
 	}
 
 	r.Release()
@@ -69,7 +69,7 @@ func (r *RegisteredTask) RunEx(args []string, flags TaskRunFlags, sessionID int,
 
 	runningTaskObj, err := oleutil.CallMethod(r.taskObj, "RunEx", args, int(flags), sessionID, user)
 	if err != nil {
-		return RunningTask{}, fmt.Errorf("error running registered task %s: %v", r.Path, getTaskSchedulerError(err))
+		return RunningTask{}, fmt.Errorf("error running registered task %s: %w", r.Path, getTaskSchedulerError(err))
 	}
 
 	return parseRunningTask(runningTaskObj.ToIDispatch())
@@ -80,7 +80,7 @@ func (r *RegisteredTask) RunEx(args []string, flags TaskRunFlags, sessionID int,
 func (r *RegisteredTask) GetInstances() (RunningTaskCollection, error) {
 	runningTasks, err := oleutil.CallMethod(r.taskObj, "GetInstances", 0)
 	if err != nil {
-		return nil, fmt.Errorf("error getting instances of registered task %s: %v", r.Path, getTaskSchedulerError(err))
+		return nil, fmt.Errorf("error getting instances of registered task %s: %w", r.Path, getTaskSchedulerError(err))
 	}
 
 	runningTasksObj := runningTasks.ToIDispatch()
@@ -95,7 +95,7 @@ func (r *RegisteredTask) GetInstances() (RunningTaskCollection, error) {
 			if errors.Is(err, ErrRunningTaskCompleted) {
 				return nil
 			}
-			return fmt.Errorf("error parsing running task: %v", err)
+			return fmt.Errorf("error parsing running task: %w", err)
 		}
 
 		parsedRunningTasks = append(parsedRunningTasks, parsedRunningTask)
@@ -116,7 +116,7 @@ func (r *RegisteredTask) GetInstances() (RunningTaskCollection, error) {
 func (r *RegisteredTask) Stop() error {
 	_, err := oleutil.CallMethod(r.taskObj, "Stop", 0)
 	if err != nil {
-		return fmt.Errorf("error stopping registered task %s: %v", r.Path, getTaskSchedulerError(err))
+		return fmt.Errorf("error stopping registered task %s: %w", r.Path, getTaskSchedulerError(err))
 	}
 
 	return nil
