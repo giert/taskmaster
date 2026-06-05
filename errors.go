@@ -25,10 +25,15 @@ func getTaskSchedulerError(err error) error {
 		return parseErr
 	}
 
+	// Task Scheduler connection failures surface either as a bare Win32 error
+	// code or as the equivalent HRESULT (HRESULT_FROM_WIN32 -> 0x8007xxxx), so
+	// both forms are handled here.
 	switch errCode {
-	case 50:
+	case 50: // ERROR_NOT_SUPPORTED: target is an unsupported OS (e.g. XP / Server 2003)
 		return ErrTargetUnsupported
-	case 0x80070032, 53:
+	case 53, // ERROR_BAD_NETPATH (raw)
+		0x80070035, // HRESULT_FROM_WIN32(ERROR_BAD_NETPATH)
+		0x80070032: // observed when the remote Task Scheduler cannot be reached
 		return ErrConnectionFailure
 	default:
 		return syscall.Errno(errCode)
