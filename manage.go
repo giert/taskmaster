@@ -288,9 +288,9 @@ func (t *TaskService) GetRegisteredTasks() (RegisteredTaskCollection, error) {
 	return registeredTasks, nil
 }
 
-// GetRegisteredTask attempts to find the specified registered task and returns a
-// pointer to it if it exists. If it doesn't exist, nil will be returned in place of
-// the registered task.
+// GetRegisteredTask attempts to find the specified registered task. If the task
+// does not exist, it returns a zero RegisteredTask and an error for which
+// errors.Is(err, os.ErrNotExist) reports true.
 func (t *TaskService) GetRegisteredTask(path string) (RegisteredTask, error) {
 	if len(path) == 0 || path[0] != '\\' {
 		return RegisteredTask{}, ErrInvalidPath

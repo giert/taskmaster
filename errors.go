@@ -25,10 +25,14 @@ func getTaskSchedulerError(err error) error {
 		return parseErr
 	}
 
-	// Task Scheduler connection failures surface either as a bare Win32 error
-	// code or as the equivalent HRESULT (HRESULT_FROM_WIN32 -> 0x8007xxxx), so
-	// both forms are handled here.
+	// Task Scheduler errors surface either as a bare Win32 error code or as the
+	// equivalent HRESULT (HRESULT_FROM_WIN32 -> 0x8007xxxx), so both forms are
+	// handled here.
 	switch errCode {
+	case 2, 0x80070002: // ERROR_FILE_NOT_FOUND: the task does not exist
+		return syscall.ERROR_FILE_NOT_FOUND // matches errors.Is(err, os.ErrNotExist)
+	case 3, 0x80070003: // ERROR_PATH_NOT_FOUND: the task folder does not exist
+		return syscall.ERROR_PATH_NOT_FOUND // matches errors.Is(err, os.ErrNotExist)
 	case 50: // ERROR_NOT_SUPPORTED: target is an unsupported OS (e.g. XP / Server 2003)
 		return ErrTargetUnsupported
 	case 53, // ERROR_BAD_NETPATH (raw)
