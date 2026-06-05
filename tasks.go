@@ -171,12 +171,14 @@ func (r RegisteredTaskCollection) Release() {
 // all subfolders. Must be called before program termination to avoid
 // memory leaks.
 func (f *TaskFolder) Release() {
-	if !f.isReleased {
-		f.RegisteredTasks.Release()
-		for _, subFolder := range f.SubFolders {
-			subFolder.RegisteredTasks.Release()
-		}
-
-		f.isReleased = true
+	if f.isReleased {
+		return
 	}
+
+	f.RegisteredTasks.Release()
+	for _, subFolder := range f.SubFolders {
+		subFolder.Release()
+	}
+
+	f.isReleased = true
 }
