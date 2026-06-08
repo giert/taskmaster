@@ -195,6 +195,7 @@ func (t *TaskService) GetRunningTasks() (RunningTaskCollection, error) {
 		return nil
 	})
 	if err != nil {
+		runningTasks.Release()
 		return nil, err
 	}
 
@@ -207,6 +208,13 @@ func (t *TaskService) GetRegisteredTasks() (RegisteredTaskCollection, error) {
 		err             error
 		registeredTasks RegisteredTaskCollection
 	)
+
+	success := false
+	defer func() {
+		if !success {
+			registeredTasks.Release()
+		}
+	}()
 
 	// get tasks from root folder
 	res, err := oleutil.CallMethod(t.rootFolderObj, "GetTasks", int(TASK_ENUM_HIDDEN))
@@ -285,6 +293,7 @@ func (t *TaskService) GetRegisteredTasks() (RegisteredTaskCollection, error) {
 		return nil, err
 	}
 
+	success = true
 	return registeredTasks, nil
 }
 
@@ -348,6 +357,7 @@ func (t TaskService) GetTasksInFolder(path string) (RegisteredTaskCollection, er
 		return nil
 	})
 	if err != nil {
+		registeredTasks.Release()
 		return nil, err
 	}
 
@@ -388,6 +398,13 @@ func (t TaskService) GetTaskFolder(path string) (TaskFolder, error) {
 	topFolderTaskCollection := res.ToIDispatch()
 	defer topFolderTaskCollection.Release()
 	topFolder := TaskFolder{Path: `\`}
+
+	success := false
+	defer func() {
+		if !success {
+			topFolder.Release()
+		}
+	}()
 	err = oleutil.ForEach(topFolderTaskCollection, func(v *ole.VARIANT) error {
 		task := v.ToIDispatch()
 
@@ -476,6 +493,7 @@ func (t TaskService) GetTaskFolder(path string) (TaskFolder, error) {
 		return TaskFolder{}, err
 	}
 
+	success = true
 	return topFolder, nil
 }
 
@@ -778,18 +796,24 @@ func (t *TaskService) DeleteTask(path string) error {
 }
 
 func (t *TaskService) registeredTaskExist(path string) bool {
-	_, err := oleutil.CallMethod(t.rootFolderObj, "GetTask", path)
+	res, err := oleutil.CallMethod(t.rootFolderObj, "GetTask", path)
 	if err != nil {
 		return false
+	}
+	if taskObj := res.ToIDispatch(); taskObj != nil {
+		taskObj.Release()
 	}
 
 	return true
 }
 
 func (t *TaskService) taskFolderExist(path string) bool {
-	_, err := oleutil.CallMethod(t.taskServiceObj, "GetFolder", path)
+	res, err := oleutil.CallMethod(t.taskServiceObj, "GetFolder", path)
 	if err != nil {
 		return false
+	}
+	if folderObj := res.ToIDispatch(); folderObj != nil {
+		folderObj.Release()
 	}
 
 	return true

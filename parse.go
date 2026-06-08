@@ -13,33 +13,43 @@ import (
 	"github.com/go-ole/go-ole/oleutil"
 )
 
-func parseRunningTask(task *ole.IDispatch) (RunningTask, error) {
-	var err error
+func parseRunningTask(task *ole.IDispatch) (_ RunningTask, err error) {
+	defer func() {
+		if err != nil && task != nil {
+			task.Release()
+		}
+	}()
 
 	currentAction, err := oleutil.GetProperty(task, "CurrentAction")
 	if err != nil {
 		return RunningTask{}, getRunningTaskError(err)
 	}
+	defer currentAction.Clear()
 	enginePID, err := oleutil.GetProperty(task, "EnginePid")
 	if err != nil {
 		return RunningTask{}, getRunningTaskError(err)
 	}
+	defer enginePID.Clear()
 	instanceGUID, err := oleutil.GetProperty(task, "InstanceGuid")
 	if err != nil {
 		return RunningTask{}, getRunningTaskError(err)
 	}
+	defer instanceGUID.Clear()
 	name, err := oleutil.GetProperty(task, "Name")
 	if err != nil {
 		return RunningTask{}, getRunningTaskError(err)
 	}
+	defer name.Clear()
 	path, err := oleutil.GetProperty(task, "Path")
 	if err != nil {
 		return RunningTask{}, getRunningTaskError(err)
 	}
+	defer path.Clear()
 	state, err := oleutil.GetProperty(task, "State")
 	if err != nil {
 		return RunningTask{}, getRunningTaskError(err)
 	}
+	defer state.Clear()
 
 	runningTask := RunningTask{
 		taskObj:       task,
@@ -55,6 +65,13 @@ func parseRunningTask(task *ole.IDispatch) (RunningTask, error) {
 }
 
 func parseRegisteredTask(task *ole.IDispatch) (RegisteredTask, string, error) {
+	success := false
+	defer func() {
+		if !success && task != nil {
+			task.Release()
+		}
+	}()
+
 	h := &oleHelper{}
 
 	name := h.getString(task, "Name")
@@ -185,6 +202,8 @@ func parseRegisteredTask(task *ole.IDispatch) (RegisteredTask, string, error) {
 		LastTaskResult: lastTaskResult,
 	}
 
+	// Ownership of task now belongs to registeredTask; don't release it.
+	success = true
 	return registeredTask, path, nil
 }
 

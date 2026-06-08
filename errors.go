@@ -60,7 +60,9 @@ func getRunningTaskError(err error) error {
 func getOLEErrorCode(err error) (uint32, error) {
 	if oleErr, ok1 := err.(*ole.OleError); ok1 {
 		if excepInfo, ok2 := oleErr.SubError().(ole.EXCEPINFO); ok2 {
-			return excepInfo.SCODE(), nil
+			code := excepInfo.SCODE()
+			excepInfo.Clear()
+			return code, nil
 		} else {
 			return uint32(oleErr.Code()), errors.New("failed to extract OLE sub-error code")
 		}

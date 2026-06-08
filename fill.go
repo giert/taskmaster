@@ -258,8 +258,12 @@ func fillTrigger(triggersObj *ole.IDispatch, trigger Trigger) error {
 		defer valueQueriesObj.Release()
 
 		for name, value := range t.ValueQueries {
-			if _, err := oleutil.CallMethod(valueQueriesObj, "Create", name, value); err != nil {
+			res, err := oleutil.CallMethod(valueQueriesObj, "Create", name, value)
+			if err != nil {
 				return fmt.Errorf("error creating value %s: %w", name, getTaskSchedulerError(err))
+			}
+			if pairObj := res.ToIDispatch(); pairObj != nil {
+				pairObj.Release()
 			}
 		}
 	case IdleTrigger:
