@@ -725,7 +725,8 @@ type TaskSettings struct {
 	TimeLimit              period.Period     // the amount of time that is allowed to complete the task
 	Hidden                 bool              // indicates that the task will not be visible in the UI
 	IdleSettings
-	MultipleInstances TaskInstancesPolicy // defines how the Task Scheduler deals with multiple instances of the task
+	MaintenanceSettings *MaintenanceSettings // nil disables Automatic Maintenance; requires TASK_COMPATIBILITY_V2_2 or later
+	MultipleInstances   TaskInstancesPolicy  // defines how the Task Scheduler deals with multiple instances of the task
 	NetworkSettings
 	Priority                  uint          // the priority level of the task, ranging from 0 - 10, where 0 is the highest priority, and 10 is the lowest. Only applies to ComHandler, Email, and MessageBox actions
 	RestartCount              uint          // the number of times that the Task Scheduler will attempt to restart the task
@@ -744,6 +745,21 @@ type IdleSettings struct {
 	RestartOnIdle bool          // whether the task is restarted when the computer cycles into an idle condition more than once
 	StopOnIdleEnd bool          // indicates that the Task Scheduler will terminate the task if the idle condition ends before the task is completed
 	WaitTimeout   period.Period // the amount of time that the Task Scheduler will wait for an idle condition to occur
+}
+
+// MaintenanceSettings opts a task into Windows Automatic Maintenance (Windows 8 /
+// Server 2012 or later). Windows chooses when to run the task; this is not a
+// clock-time trigger. Configuring maintenance enables the unified scheduling
+// engine, which imposes additional restrictions on supported task settings.
+//
+// Durations use XML Schema duration fields (years, months, days, hours, minutes,
+// seconds). Use days instead of weeks. Windows validates calendar-dependent
+// comparisons between months/years and days at registration time.
+// https://learn.microsoft.com/en-us/windows/win32/taskschd/task-maintenence
+type MaintenanceSettings struct {
+	Period    period.Period // required; at least one day between maintenance attempts
+	Deadline  period.Period // optional; zero omits emergency maintenance, otherwise must exceed Period
+	Exclusive bool          // run separately from other maintenance tasks
 }
 
 // NetworkSettings provides the settings that the Task Scheduler service uses to obtain a network profile.
