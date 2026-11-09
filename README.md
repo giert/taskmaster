@@ -45,6 +45,9 @@ This library faithfully exposes most of Windows Task Scheduler's rough edges rat
 - **`RunLevel: TASK_RUNLEVEL_HIGHEST` requires the creator to be elevated**, or registration fails with "Access is denied".
 - **Local accounts usually need the machine name** in `Principal.UserID` (`COMPUTERNAME\user`, not a bare username), or registration fails with "No mapping between account names and security IDs was done".
 - **Repetition:** `RepetitionInterval` must be at least one minute, and a non-zero `RepetitionDuration` must be longer than the interval. To repeat indefinitely, leave `RepetitionDuration` zero.
+- **Calendar intervals:** `DailyTrigger.DayInterval` accepts 1–365 days; `WeeklyTrigger.WeekInterval` accepts 1–52 weeks. Zero is invalid. `DayInterval` now uses `uint16` to support the full range, so code that depends on its former `uint8` representation needs updating.
+- **Last-day-only monthly schedules:** set `RunOnLastDayOfMonth` to `true`, select `MonthsOfYear`, and leave `DaysOfMonth` zero when no numbered days are wanted. Alternatively, use `LastDayOfMonth` in `DaysOfMonth`, alone or combined with numbered days. Reading a task returns the last-day setting in `RunOnLastDayOfMonth` and only numbered days in `DaysOfMonth`.
+- **Execution limits:** a zero `Settings.TimeLimit` or `TaskTrigger.ExecutionTimeLimit` explicitly means unlimited for that setting. `NewTaskDefinition()` still starts with the default 72-hour task limit; assign a zero period to remove it. Zero repetition duration continues to mean indefinite repetition.
 - **`DeleteExpiredTaskAfter` only takes effect if a trigger has an `EndBoundary`.**
 - **`Settings.Compatibility`** must match the features used — multiple triggers or actions need `TASK_COMPATIBILITY_V2` or newer (the default here).
 

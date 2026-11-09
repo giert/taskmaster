@@ -151,7 +151,7 @@ func fillTaskSettingsObj(settings TaskSettings, settingsObj *ole.IDispatch) erro
 	h.put(settingsObj, "DeleteExpiredTaskAfter", settings.DeleteExpiredTaskAfter)
 	h.put(settingsObj, "DisallowStartIfOnBatteries", settings.DontStartOnBatteries)
 	h.put(settingsObj, "Enabled", settings.Enabled)
-	h.put(settingsObj, "ExecutionTimeLimit", PeriodToString(settings.TimeLimit))
+	h.put(settingsObj, "ExecutionTimeLimit", executionTimeLimitToString(settings.TimeLimit))
 	h.put(settingsObj, "Hidden", settings.Hidden)
 
 	idlesettingsObj := h.getObject(settingsObj, "IdleSettings")
@@ -207,7 +207,7 @@ func fillTrigger(triggersObj *ole.IDispatch, trigger Trigger) error {
 	h := &oleHelper{}
 	h.put(triggerObj, "Enabled", trigger.GetEnabled())
 	h.put(triggerObj, "EndBoundary", TimeToTaskDate(trigger.GetEndBoundary()))
-	h.put(triggerObj, "ExecutionTimeLimit", PeriodToString(trigger.GetExecutionTimeLimit()))
+	h.put(triggerObj, "ExecutionTimeLimit", executionTimeLimitToString(trigger.GetExecutionTimeLimit()))
 	h.put(triggerObj, "Id", trigger.GetID())
 
 	repetitionObj := h.getObject(triggerObj, "Repetition")
@@ -300,10 +300,12 @@ func fillTrigger(triggersObj *ole.IDispatch, trigger Trigger) error {
 		}
 		defer monthlyTriggerObj.Release()
 
-		h.put(monthlyTriggerObj, "DaysOfMonth", uint(t.DaysOfMonth))
+		// The public mask also accepts LastDayOfMonth. Use the separate COM
+		// property for that bit so the numbered-day mask always fits a LONG.
+		h.put(monthlyTriggerObj, "DaysOfMonth", uint(t.DaysOfMonth&AllDaysOfMonth))
 		h.put(monthlyTriggerObj, "MonthsOfYear", uint(t.MonthsOfYear))
 		h.put(monthlyTriggerObj, "RandomDelay", PeriodToString(t.RandomDelay))
-		h.put(monthlyTriggerObj, "RunOnLastDayOfMonth", t.RunOnLastDayOfMonth)
+		h.put(monthlyTriggerObj, "RunOnLastDayOfMonth", t.RunOnLastDayOfMonth || t.DaysOfMonth&LastDayOfMonth != 0)
 	case RegistrationTrigger:
 		registrationTriggerObj := h.query(triggerObj, ole.NewGUID("{4c8fec3a-c218-4e0c-b23d-629024db91a2}"))
 		if h.err != nil {

@@ -69,3 +69,13 @@ func PeriodToString(p period.Period) string {
 
 	return s
 }
+
+// ExecutionTimeLimit needs an explicit zero duration to mean unlimited.
+// Other properties, such as an indefinite repetition duration, require an
+// empty string instead and must continue using PeriodToString.
+func executionTimeLimitToString(p period.Period) string {
+	if p.IsZero() {
+		return "PT0S"
+	}
+	return p.String()
+}

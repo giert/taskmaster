@@ -20,9 +20,12 @@ var (
 )
 
 func getTaskSchedulerError(err error) error {
+	if err == nil {
+		return nil
+	}
 	errCode, parseErr := getOLEErrorCode(err)
 	if parseErr != nil {
-		return parseErr
+		return err
 	}
 
 	// Task Scheduler errors surface either as a bare Win32 error code or as the
@@ -45,9 +48,12 @@ func getTaskSchedulerError(err error) error {
 }
 
 func getRunningTaskError(err error) error {
+	if err == nil {
+		return nil
+	}
 	errCode, parseErr := getOLEErrorCode(err)
 	if parseErr != nil {
-		return parseErr
+		return err
 	}
 
 	if errCode == 0x8004130B {
@@ -58,14 +64,29 @@ func getRunningTaskError(err error) error {
 }
 
 func getOLEErrorCode(err error) (uint32, error) {
-	if oleErr, ok1 := err.(*ole.OleError); ok1 {
-		if excepInfo, ok2 := oleErr.SubError().(ole.EXCEPINFO); ok2 {
-			code := excepInfo.SCODE()
-			excepInfo.Clear()
-			return code, nil
-		} else {
-			return uint32(oleErr.Code()), errors.New("failed to extract OLE sub-error code")
+	var oleErr *ole.OleError
+	if !errors.As(err, &oleErr) || oleErr == nil {
+		return 0, errors.New("failed to extract OLE error code")
+	}
+
+	// Invoke may provide a more specific error in EXCEPINFO. go-ole has already
+	// cleared its native strings before constructing the OleError; reading the
+	// error code must not free or otherwise mutate the caller's exception data.
+	var code uint32
+	switch excepInfo := oleErr.SubError().(type) {
+	case ole.EXCEPINFO:
+		code = excepInfo.SCODE()
+	case *ole.EXCEPINFO:
+		if excepInfo != nil {
+			code = excepInfo.SCODE()
 		}
 	}
-	return 0, errors.New("failed to extract OLE error code")
+	if code != 0 {
+		return code, nil
+	}
+
+	// A missing, unfamiliar, or empty EXCEPINFO does not invalidate the HRESULT
+	// on the OleError itself. In particular, direct COM failures often have no
+	// sub-error at all.
+	return uint32(oleErr.Code()), nil
 }
