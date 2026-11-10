@@ -376,6 +376,10 @@ func parseTaskSettings(settings *ole.IDispatch) (*TaskSettings, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error parsing RestartInterval field: %w", err)
 	}
+	maintenanceSettings, err := parseMaintenanceSettings(settings)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing MaintenanceSettings: %w", err)
+	}
 
 	idleTaskSettings := IdleSettings{
 		IdleDuration:  idleDuration,
@@ -399,6 +403,7 @@ func parseTaskSettings(settings *ole.IDispatch) (*TaskSettings, error) {
 		TimeLimit:                 timeLimit,
 		Hidden:                    hidden,
 		IdleSettings:              idleTaskSettings,
+		MaintenanceSettings:       maintenanceSettings,
 		MultipleInstances:         multipleInstances,
 		NetworkSettings:           networkTaskSettings,
 		Priority:                  priority,

@@ -36,6 +36,42 @@ As I was researching the Task Scheduler COM interface more and more, I quickly r
 
 There are a lot of hidden gotchas and quirks within Task Scheduler, so I would *highly* recommend perusing the official docs before attempting really anything with this library on [MSDN](https://docs.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page).
 
+## Automatic Maintenance
+
+On Windows 8 / Server 2012 and later, opt a task into Windows' maintenance schedule
+with `Settings.MaintenanceSettings`. This requires `TASK_COMPATIBILITY_V2_2` or
+later and automatically enables `UseUnifiedSchedulingEngine` for that task.
+
+```go
+// taskmaster is github.com/giert/taskmaster; period is github.com/rickb777/period.
+def := taskmaster.DefaultDefinition()
+def.Settings.Compatibility = taskmaster.TASK_COMPATIBILITY_V2_2
+def.Settings.MaintenanceSettings = &taskmaster.MaintenanceSettings{
+    Period:    period.NewYMD(0, 0, 2),  // at least one day
+    Deadline:  period.NewYMD(0, 0, 14), // optional; must be longer than Period
+    Exclusive: false,
+}
+def.AddAction(taskmaster.ExecAction{Path: `C:\Program Files\MyApp\maintenance.exe`})
+// Register def with TaskService.CreateTask, as with an ordinary definition.
+```
+
+A zero `Deadline` omits emergency maintenance. A nil `MaintenanceSettings` leaves
+the task outside Automatic Maintenance; setting it to nil when updating a task
+removes the configuration. Ordinary tasks do not require the newer COM interface
+when written. Reading a task without maintenance settings returns nil.
+
+Durations follow XML Schema syntax: use days instead of weeks, and whole numbers
+except for fractional seconds. The library checks the one-day minimum and
+unambiguous deadline ordering without overflowing `time.Duration`; Windows checks
+calendar-dependent comparisons (such as one month versus 31 days) at registration.
+The unified scheduling engine also restricts which combinations of triggers and
+settings Windows accepts; registration errors are returned to the caller.
+
+Windows chooses maintenance opportunities, normally while the computer is idle
+and on AC power. This does not promise execution at a chosen clock time or a
+particular wake-from-sleep behavior. Work should tolerate interruption and resume
+its own progress. See [Microsoft's Automatic Maintenance guide](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-maintenence).
+
 ====================== GIERT'S TASK SCHEDULER GOTCHAS ======================
 
 This library faithfully exposes most of Windows Task Scheduler's rough edges rather than hiding them. A few to be extra aware of, maybe you can avoid my mistakes and wasted time:

@@ -20,6 +20,9 @@ func validateDefinition(def Definition) error {
 	if err = validateTriggers(def.Triggers); err != nil {
 		return err
 	}
+	if err = validateMaintenanceSettings(def.Settings); err != nil {
+		return err
+	}
 
 	if def.Principal.UserID != "" && def.Principal.GroupID != "" {
 		return ErrInvalidPrincipal

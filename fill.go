@@ -183,7 +183,10 @@ func fillTaskSettingsObj(settings TaskSettings, settingsObj *ole.IDispatch) erro
 	h.put(settingsObj, "StopIfGoingOnBatteries", settings.StopIfGoingOnBatteries)
 	h.put(settingsObj, "WakeToRun", settings.WakeToRun)
 
-	return h.err
+	if h.err != nil {
+		return h.err
+	}
+	return fillMaintenanceSettingsObj(settings.MaintenanceSettings, settingsObj)
 }
 
 func fillTaskTriggersObj(triggers []Trigger, triggersObj *ole.IDispatch) error {
