@@ -612,6 +612,10 @@ func parseTaskTrigger(trigger *ole.IDispatch) (Trigger, error) {
 		if h.err != nil {
 			return nil, h.err
 		}
+		// Windows can report "Last" in the high bit of DaysOfMonth. Expose
+		// numbered days and the last-day flag separately for stable read-back.
+		runOnLastDayOfMonth = runOnLastDayOfMonth || daysOfMonth&LastDayOfMonth != 0
+		daysOfMonth &= AllDaysOfMonth
 		randomDelay, err := StringToPeriod(randomDelayStr)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing IMonthlyTrigger object: error parsing RandomDelay field: %w", err)

@@ -104,6 +104,18 @@ func TestPeriodToString(t *testing.T) {
 	}
 }
 
+func TestExecutionTimeLimitToString(t *testing.T) {
+	if got := executionTimeLimitToString(period.Period{}); got != "PT0S" {
+		t.Errorf("unlimited execution: want PT0S, got %q", got)
+	}
+	if got := executionTimeLimitToString(period.NewHMS(0, 30, 0)); got != "PT30M" {
+		t.Errorf("finite execution: want PT30M, got %q", got)
+	}
+	if got := PeriodToString(period.Period{}); got != "" {
+		t.Errorf("indefinite repetition must remain empty, got %q", got)
+	}
+}
+
 func TestIntToDayOfMonth(t *testing.T) {
 	tests := []struct {
 		name    string

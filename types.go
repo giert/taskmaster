@@ -62,8 +62,8 @@ func (d DayOfWeek) String() string {
 	return s[:len(s)-2]
 }
 
-// DayInterval specifies if a task runs every day or every other day.
-type DayInterval uint8
+// DayInterval is the number of days between task runs, from 1 through 365.
+type DayInterval uint16
 
 const (
 	EveryDay      DayInterval = 1
@@ -248,7 +248,7 @@ func (w Week) String() string {
 	return s[:len(s)-2]
 }
 
-// WeekInterval specifies if a task runs every week or every other week.
+// WeekInterval is the number of weeks between task runs, from 1 through 52.
 type WeekInterval uint8
 
 const (
@@ -722,7 +722,7 @@ type TaskSettings struct {
 	DeleteExpiredTaskAfter string            // the amount of time that the Task Scheduler will wait before deleting the task after it expires
 	DontStartOnBatteries   bool              // indicates that the task will not be started if the computer is running on batteries
 	Enabled                bool              // indicates that the task is enabled
-	TimeLimit              period.Period     // the amount of time that is allowed to complete the task
+	TimeLimit              period.Period     // the amount of time allowed to complete the task; zero means unlimited
 	Hidden                 bool              // indicates that the task will not be visible in the UI
 	IdleSettings
 	MultipleInstances TaskInstancesPolicy // defines how the Task Scheduler deals with multiple instances of the task
@@ -770,7 +770,7 @@ type Trigger interface {
 type TaskTrigger struct {
 	Enabled            bool          // indicates whether the trigger is enabled
 	EndBoundary        time.Time     // the date and time when the trigger is deactivated
-	ExecutionTimeLimit period.Period // the maximum amount of time that the task launched by this trigger is allowed to run
+	ExecutionTimeLimit period.Period // the maximum runtime of a task launched by this trigger; zero leaves it unset, so the task's TimeLimit applies
 	ID                 string        // the identifier for the trigger
 	RepetitionPattern
 	StartBoundary time.Time // the date and time when the trigger is activated
@@ -838,7 +838,7 @@ type MonthlyDOWTrigger struct {
 // https://docs.microsoft.com/en-us/windows/desktop/api/taskschd/nn-taskschd-imonthlytrigger
 type MonthlyTrigger struct {
 	TaskTrigger
-	DaysOfMonth         DayOfMonth    // the days of the month during which the task runs
+	DaysOfMonth         DayOfMonth    // numbered days and optional LastDayOfMonth bit; may be zero when RunOnLastDayOfMonth is true
 	MonthsOfYear        Month         // the months of the year during which the task runs
 	RandomDelay         period.Period // a delay time that is randomly added to the start time of the trigger
 	RunOnLastDayOfMonth bool          // indicates that the task runs on the last day of the month
