@@ -70,9 +70,10 @@ func PeriodToString(p period.Period) string {
 	return s
 }
 
-// ExecutionTimeLimit needs an explicit zero duration to mean unlimited.
-// Other properties, such as an indefinite repetition duration, require an
-// empty string instead and must continue using PeriodToString.
+// The task-level ExecutionTimeLimit needs an explicit zero duration to mean
+// unlimited. A trigger's ExecutionTimeLimit and other properties, such as an
+// indefinite repetition duration, use an empty string for "not set" and must
+// continue using PeriodToString.
 func executionTimeLimitToString(p period.Period) string {
 	if p.IsZero() {
 		return "PT0S"

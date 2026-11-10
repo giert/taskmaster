@@ -207,7 +207,7 @@ func fillTrigger(triggersObj *ole.IDispatch, trigger Trigger) error {
 	h := &oleHelper{}
 	h.put(triggerObj, "Enabled", trigger.GetEnabled())
 	h.put(triggerObj, "EndBoundary", TimeToTaskDate(trigger.GetEndBoundary()))
-	h.put(triggerObj, "ExecutionTimeLimit", executionTimeLimitToString(trigger.GetExecutionTimeLimit()))
+	h.put(triggerObj, "ExecutionTimeLimit", PeriodToString(trigger.GetExecutionTimeLimit()))
 	h.put(triggerObj, "Id", trigger.GetID())
 
 	repetitionObj := h.getObject(triggerObj, "Repetition")

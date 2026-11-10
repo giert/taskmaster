@@ -770,7 +770,7 @@ type Trigger interface {
 type TaskTrigger struct {
 	Enabled            bool          // indicates whether the trigger is enabled
 	EndBoundary        time.Time     // the date and time when the trigger is deactivated
-	ExecutionTimeLimit period.Period // the maximum runtime of a task launched by this trigger; zero means unlimited
+	ExecutionTimeLimit period.Period // the maximum runtime of a task launched by this trigger; zero leaves it unset, so the task's TimeLimit applies
 	ID                 string        // the identifier for the trigger
 	RepetitionPattern
 	StartBoundary time.Time // the date and time when the trigger is activated

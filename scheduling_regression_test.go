@@ -6,6 +6,7 @@ package taskmaster
 import (
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,6 +51,18 @@ func TestExecutionTimeLimitsRoundTrip(t *testing.T) {
 			trigger := requireTriggerAt[TimeTrigger](t, task, 0)
 			if got := trigger.ExecutionTimeLimit; got.DurationApprox() != tt.triggerLimit.DurationApprox() {
 				t.Errorf("%s: trigger limit: want %s, got %s", tt.name, tt.triggerLimit, got)
+			}
+			// A zero trigger limit must stay unset rather than become an explicit
+			// PT0S, so only the task-level element appears in the XML.
+			wantElements := 1
+			if !tt.triggerLimit.IsZero() {
+				wantElements = 2
+			}
+			if got := strings.Count(task.Definition.XMLText, "<ExecutionTimeLimit>"); got != wantElements {
+				t.Errorf("%s: ExecutionTimeLimit elements in XML: want %d, got %d", tt.name, wantElements, got)
+			}
+			if tt.taskLimit.IsZero() && !strings.Contains(task.Definition.XMLText, "<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>") {
+				t.Errorf("%s: unlimited task limit must be written as PT0S", tt.name)
 			}
 			if got := trigger.RepetitionDuration; !got.IsZero() {
 				t.Errorf("%s: indefinite repetition duration: want zero, got %s", tt.name, got)
